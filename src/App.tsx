@@ -7,6 +7,13 @@ import { Layout } from './components/layout';
 import Dashboard from './pages/Dashboard';
 import { ManufacturerList, ManufacturerForm } from './pages/Manufacturer';
 import { WeaponList } from './pages/Weapon';
+import { MilitaryUnitList, MilitaryUnitForm } from './pages/MilitaryUnit';
+import { AmmunitionList, AmmunitionForm } from './pages/Ammunition';
+import { MaintenanceList, MaintenanceForm } from './pages/Maintenance';
+import { SoldierList, SoldierForm } from './pages/Soldier';
+import { WeaponAssignmentList, WeaponAssignmentForm } from './pages/WeaponAssignment';
+import { StorageFacilityList, StorageFacilityForm } from './pages/StorageFacility';
+
 
 // For now, add placeholder components for other pages
 const PlaceholderPage = ({ title }: { title: string }) => <div>{title} Page</div>;
@@ -34,12 +41,48 @@ function App() {
               <Route path=":id" element={<PlaceholderPage title="Weapon Details" />} />
             </Route>
             
-            <Route path="military-units" element={<PlaceholderPage title="Military Units" />} />
-            <Route path="soldiers" element={<PlaceholderPage title="Soldiers" />} />
-            <Route path="weapon-assignments" element={<PlaceholderPage title="Weapon Assignments" />} />
-            <Route path="storage-facilities" element={<PlaceholderPage title="Storage Facilities" />} />
-            <Route path="maintenance" element={<PlaceholderPage title="Maintenance" />} />
-            <Route path="ammunition" element={<PlaceholderPage title="Ammunition" />} />
+            <Route path="military-units">
+              <Route index element={<MilitaryUnitList />} />
+              <Route path="new" element={<MilitaryUnitForm />} />
+              <Route path="edit/:id" element={<MilitaryUnitForm />} />
+              <Route path=":id" element={<MilitaryUnitForm />} />
+            </Route>
+            
+            <Route path="ammunition">
+              <Route index element={<AmmunitionList />} />
+              <Route path="new" element={<AmmunitionForm />} />
+              <Route path="edit/:id" element={<AmmunitionForm />} />
+              <Route path=":id" element={<AmmunitionForm />} />
+            </Route>
+            
+            <Route path="soldiers">
+              <Route index element={<SoldierList />} />
+              <Route path="new" element={<SoldierForm />} />
+              <Route path="edit/:id" element={<SoldierForm />} />
+              <Route path=":id" element={<SoldierForm />} />
+            </Route>
+            
+            <Route path="maintenance">
+              <Route index element={<MaintenanceList />} />
+              <Route path="new" element={<MaintenanceForm />} />
+              <Route path="edit/:id" element={<MaintenanceForm />} />
+              <Route path=":id" element={<MaintenanceForm />} />
+            </Route>
+            
+            <Route path="weapon-assignments">
+              <Route index element={<WeaponAssignmentList />} />
+              <Route path="new" element={<WeaponAssignmentForm />} />
+              <Route path="edit/:id" element={<WeaponAssignmentForm />} />
+              <Route path=":id" element={<WeaponAssignmentForm />} />
+            </Route>
+            
+            <Route path="storage-facilities">
+              <Route index element={<StorageFacilityList />} />
+              <Route path="new" element={<StorageFacilityForm />} />
+              <Route path="edit/:id" element={<StorageFacilityForm />} />
+              <Route path=":id" element={<StorageFacilityForm />} />
+            </Route>
+            
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>
