@@ -6,7 +6,7 @@ import theme from './theme';
 import { Layout } from './components/layout';
 import Dashboard from './pages/Dashboard';
 import { ManufacturerList, ManufacturerForm } from './pages/Manufacturer';
-import { WeaponList } from './pages/Weapon';
+import { WeaponList, WeaponForm } from './pages/Weapon';
 import { MilitaryUnitList, MilitaryUnitForm } from './pages/MilitaryUnit';
 import { AmmunitionList, AmmunitionForm } from './pages/Ammunition';
 import { MaintenanceList, MaintenanceForm } from './pages/Maintenance';
@@ -27,6 +27,7 @@ function App() {
           <Route path="/" element={<Layout />}>
             <Route index element={<Dashboard />} />
             
+            {/* Manufacturers */}
             <Route path="manufacturers">
               <Route index element={<ManufacturerList />} />
               <Route path="new" element={<ManufacturerForm />} />
@@ -34,13 +35,15 @@ function App() {
               <Route path=":id" element={<ManufacturerForm />} />
             </Route>
             
+            {/* Weapons */}
             <Route path="weapons">
               <Route index element={<WeaponList />} />
-              <Route path="new" element={<PlaceholderPage title="Add Weapon" />} />
-              <Route path="edit/:id" element={<PlaceholderPage title="Edit Weapon" />} />
-              <Route path=":id" element={<PlaceholderPage title="Weapon Details" />} />
+              <Route path="new" element={<WeaponForm />} />
+              <Route path="edit/:id" element={<WeaponForm />} />
+              <Route path=":id" element={<WeaponForm />} />
             </Route>
             
+            {/* Military Units */}
             <Route path="military-units">
               <Route index element={<MilitaryUnitList />} />
               <Route path="new" element={<MilitaryUnitForm />} />
@@ -48,6 +51,7 @@ function App() {
               <Route path=":id" element={<MilitaryUnitForm />} />
             </Route>
             
+            {/* Ammunition */}
             <Route path="ammunition">
               <Route index element={<AmmunitionList />} />
               <Route path="new" element={<AmmunitionForm />} />
@@ -55,6 +59,7 @@ function App() {
               <Route path=":id" element={<AmmunitionForm />} />
             </Route>
             
+            {/* Soldiers */}
             <Route path="soldiers">
               <Route index element={<SoldierList />} />
               <Route path="new" element={<SoldierForm />} />
@@ -62,6 +67,7 @@ function App() {
               <Route path=":id" element={<SoldierForm />} />
             </Route>
             
+            {/* Maintenance */}
             <Route path="maintenance">
               <Route index element={<MaintenanceList />} />
               <Route path="new" element={<MaintenanceForm />} />
@@ -69,6 +75,7 @@ function App() {
               <Route path=":id" element={<MaintenanceForm />} />
             </Route>
             
+            {/* Weapon Assignments */}
             <Route path="weapon-assignments">
               <Route index element={<WeaponAssignmentList />} />
               <Route path="new" element={<WeaponAssignmentForm />} />
@@ -76,6 +83,7 @@ function App() {
               <Route path=":id" element={<WeaponAssignmentForm />} />
             </Route>
             
+            {/* Storage Facilities */}
             <Route path="storage-facilities">
               <Route index element={<StorageFacilityList />} />
               <Route path="new" element={<StorageFacilityForm />} />
@@ -83,6 +91,7 @@ function App() {
               <Route path=":id" element={<StorageFacilityForm />} />
             </Route>
             
+            {/* Catch all route */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

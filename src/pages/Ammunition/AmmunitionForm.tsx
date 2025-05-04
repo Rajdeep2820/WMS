@@ -102,6 +102,7 @@ const AmmunitionForm: React.FC = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const statusOptions: Array<Ammunition['status']> = [
     'Available',
@@ -111,10 +112,10 @@ const AmmunitionForm: React.FC = () => {
   ];
   
   useEffect(() => {
-    if (isEditMode) {
+    if (isEditMode && id) {
       // In a real app, this would be an API call
       const foundAmmunition = mockAmmunition.find(
-        (a) => a.id === parseInt(id!, 10)
+        (a) => a.id === parseInt(id, 10)
       );
       
       if (foundAmmunition) {
@@ -125,16 +126,17 @@ const AmmunitionForm: React.FC = () => {
         navigate('/ammunition');
       }
     }
+    setIsInitialized(true);
   }, [id, isEditMode, navigate]);
   
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
     
-    if (!ammunition.type) {
+    if (!ammunition.type.trim()) {
       newErrors.type = 'Type is required';
     }
     
-    if (!ammunition.caliber) {
+    if (!ammunition.caliber.trim()) {
       newErrors.caliber = 'Caliber is required';
     }
     
@@ -146,7 +148,7 @@ const AmmunitionForm: React.FC = () => {
       newErrors.manufacturerId = 'Manufacturer is required';
     }
     
-    if (!ammunition.batchNumber) {
+    if (!ammunition.batchNumber.trim()) {
       newErrors.batchNumber = 'Batch number is required';
     }
     
@@ -156,12 +158,16 @@ const AmmunitionForm: React.FC = () => {
       newErrors.manufactureDate = 'Use format YYYY-MM-DD';
     }
     
+    if (ammunition.expirationDate && !/^\d{4}-\d{2}-\d{2}$/.test(ammunition.expirationDate)) {
+      newErrors.expirationDate = 'Use format YYYY-MM-DD';
+    }
+    
     if (!ammunition.storageId) {
       newErrors.storageId = 'Storage facility is required';
     }
     
-    if (ammunition.expirationDate && !/^\d{4}-\d{2}-\d{2}$/.test(ammunition.expirationDate)) {
-      newErrors.expirationDate = 'Use format YYYY-MM-DD';
+    if (!ammunition.status) {
+      newErrors.status = 'Status is required';
     }
     
     setErrors(newErrors);
@@ -173,8 +179,8 @@ const AmmunitionForm: React.FC = () => {
     
     setAmmunition((prev) => ({
       ...prev,
-      [name]: name === 'quantity' || name === 'manufacturerId' || name === 'storageId' 
-        ? parseInt(value, 10) || 0 
+      [name]: name === 'quantity' || name === 'manufacturerId' || name === 'storageId'
+        ? parseInt(value, 10) || 0
         : value,
     }));
     
@@ -191,6 +197,7 @@ const AmmunitionForm: React.FC = () => {
     e.preventDefault();
     
     if (!validateForm()) {
+      setSubmitError('Please fill in all required fields correctly.');
       return;
     }
     
@@ -198,12 +205,13 @@ const AmmunitionForm: React.FC = () => {
     setSubmitError(null);
     
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Simulate API call with a longer delay to show loading state
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       
       // In a real app, you would make an API call here
       // isEditMode ? updateAmmunition(id, ammunition) : createAmmunition(ammunition);
       
+      // Only navigate after successful submission
       navigate('/ammunition');
     } catch (error) {
       setSubmitError('An error occurred while saving. Please try again.');
@@ -215,9 +223,13 @@ const AmmunitionForm: React.FC = () => {
   const handleCancel = () => {
     navigate('/ammunition');
   };
+
+  if (!isInitialized) {
+    return null; // Don't render anything until initialization is complete
+  }
   
   return (
-    <Box>
+    <Box sx={{ position: 'relative', zIndex: 2 }}>
       <PageHeader
         title={isEditMode ? 'Edit Ammunition' : 'Add Ammunition'}
         icon={<InventoryIcon fontSize="large" />}
@@ -231,6 +243,8 @@ const AmmunitionForm: React.FC = () => {
           p: 3,
           mb: 3,
           borderRadius: theme.shape.borderRadius,
+          position: 'relative',
+          zIndex: 2,
         }}
       >
         {submitError && (

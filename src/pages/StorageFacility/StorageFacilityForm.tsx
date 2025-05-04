@@ -61,6 +61,7 @@ const StorageFacilityForm: React.FC = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const securityLevels = [
     'Low',
@@ -77,10 +78,10 @@ const StorageFacilityForm: React.FC = () => {
   ];
   
   useEffect(() => {
-    if (isEditMode) {
+    if (isEditMode && id) {
       // In a real app, this would be an API call
       const foundFacility = mockFacilities.find(
-        (f) => f.id === parseInt(id!, 10)
+        (f) => f.id === parseInt(id, 10)
       );
       
       if (foundFacility) {
@@ -91,6 +92,7 @@ const StorageFacilityForm: React.FC = () => {
         navigate('/storage-facilities');
       }
     }
+    setIsInitialized(true);
   }, [id, isEditMode, navigate]);
   
   const validateForm = (): boolean => {
@@ -149,6 +151,7 @@ const StorageFacilityForm: React.FC = () => {
     e.preventDefault();
     
     if (!validateForm()) {
+      setSubmitError('Please fill in all required fields correctly.');
       return;
     }
     
@@ -156,12 +159,13 @@ const StorageFacilityForm: React.FC = () => {
     setSubmitError(null);
     
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Simulate API call with a longer delay to show loading state
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       
       // In a real app, you would make an API call here
       // isEditMode ? updateFacility(id, facility) : createFacility(facility);
       
+      // Only navigate after successful submission
       navigate('/storage-facilities');
     } catch (error) {
       setSubmitError('An error occurred while saving. Please try again.');
@@ -173,9 +177,13 @@ const StorageFacilityForm: React.FC = () => {
   const handleCancel = () => {
     navigate('/storage-facilities');
   };
+
+  if (!isInitialized) {
+    return null; // Don't render anything until initialization is complete
+  }
   
   return (
-    <Box>
+    <Box sx={{ position: 'relative', zIndex: 2 }}>
       <PageHeader
         title={isEditMode ? 'Edit Storage Facility' : 'Add Storage Facility'}
         icon={<HomeWorkIcon fontSize="large" />}
@@ -189,6 +197,8 @@ const StorageFacilityForm: React.FC = () => {
           p: 3,
           mb: 3,
           borderRadius: theme.shape.borderRadius,
+          position: 'relative',
+          zIndex: 2,
         }}
       >
         {submitError && (

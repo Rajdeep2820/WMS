@@ -3,89 +3,109 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Paper,
-  Typography,
   TextField,
   Button,
+  MenuItem,
   Divider,
   useTheme,
   Alert,
-  MenuItem,
 } from '@mui/material';
-import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { PageHeader } from '../../components/common';
-import { MilitaryUnit } from '../../types';
+import { Weapon } from '../../types';
 
-// Mock military units data (in a real app would come from an API)
-const mockMilitaryUnits: MilitaryUnit[] = [
+// Mock weapons data
+const mockWeapons: Weapon[] = [
   {
     id: 1,
-    name: '1st Infantry Division',
-    location: 'Fort Riley, Kansas',
-    commanderName: 'Colonel James Wilson',
-    type: 'Infantry',
-    personnel: 12500,
-    established: '1917-06-14',
+    name: 'M4A1 Carbine',
+    type: 'Assault Rifle',
+    caliber: '5.56×45mm NATO',
+    manufacturerId: 1,
+    manufacturerName: 'Defense Systems Inc.',
+    serialNumber: 'M4A1-2023-001',
+    manufactureDate: '2023-01-15',
+    status: 'Available',
+    description: 'Standard issue assault rifle',
   },
   {
     id: 2,
-    name: '5th Armored Brigade',
-    location: 'Fort Bliss, Texas',
-    commanderName: 'Colonel Sarah Johnson',
-    type: 'Armored',
-    personnel: 8200,
-    established: '1942-10-01',
+    name: 'M9 Beretta',
+    type: 'Pistol',
+    caliber: '9×19mm Parabellum',
+    manufacturerId: 2,
+    manufacturerName: 'Europa Arms',
+    serialNumber: 'M9-2023-001',
+    manufactureDate: '2023-02-20',
+    status: 'Available',
+    description: 'Standard issue sidearm',
   },
 ];
 
-const emptyMilitaryUnit: Omit<MilitaryUnit, 'id'> = {
-  name: '',
-  location: '',
-  commanderName: '',
-  type: '',
-  personnel: 0,
-  established: '',
-};
-
-const unitTypes = [
-  'Infantry',
-  'Armored',
-  'Artillery',
-  'Aviation',
-  'Special Forces',
-  'Medical',
-  'Intelligence',
-  'Engineering',
-  'Supply',
-  'Communication',
+// Mock manufacturers for dropdown
+const mockManufacturers = [
+  { id: 1, name: 'Defense Systems Inc.' },
+  { id: 2, name: 'Europa Arms' },
+  { id: 3, name: 'Sakura Defense' },
+  { id: 4, name: 'Royal Armaments' },
 ];
 
-const MilitaryUnitForm: React.FC = () => {
+// Weapon types
+const weaponTypes = [
+  'Assault Rifle',
+  'Pistol',
+  'Shotgun',
+  'Sniper Rifle',
+  'Machine Gun',
+  'Submachine Gun',
+  'Rifle',
+  'Carbine',
+];
+
+const emptyWeapon: Omit<Weapon, 'id'> = {
+  name: '',
+  type: '',
+  caliber: '',
+  manufacturerId: 0,
+  serialNumber: '',
+  manufactureDate: new Date().toISOString().split('T')[0],
+  status: 'Available',
+  description: '',
+};
+
+const WeaponForm: React.FC = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const theme = useTheme();
   const isEditMode = id !== 'new';
   
-  const [militaryUnit, setMilitaryUnit] = useState<Omit<MilitaryUnit, 'id'>>(emptyMilitaryUnit);
+  const [weapon, setWeapon] = useState<Omit<Weapon, 'id'>>(emptyWeapon);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   
+  const statusOptions: Array<Weapon['status']> = [
+    'Available',
+    'Assigned',
+    'Maintenance',
+    'Retired',
+  ];
+  
   useEffect(() => {
     if (isEditMode && id) {
       // In a real app, this would be an API call
-      const foundMilitaryUnit = mockMilitaryUnits.find(
-        (m) => m.id === parseInt(id, 10)
+      const foundWeapon = mockWeapons.find(
+        (w) => w.id === parseInt(id, 10)
       );
       
-      if (foundMilitaryUnit) {
-        const { id, ...rest } = foundMilitaryUnit;
-        setMilitaryUnit(rest);
+      if (foundWeapon) {
+        const { id, manufacturerName, ...rest } = foundWeapon;
+        setWeapon(rest);
       } else {
-        // Military unit not found
-        navigate('/military-units');
+        // Weapon not found
+        navigate('/weapons');
       }
     }
     setIsInitialized(true);
@@ -94,30 +114,34 @@ const MilitaryUnitForm: React.FC = () => {
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
     
-    if (!militaryUnit.name.trim()) {
+    if (!weapon.name.trim()) {
       newErrors.name = 'Name is required';
     }
     
-    if (!militaryUnit.location.trim()) {
-      newErrors.location = 'Location is required';
+    if (!weapon.type) {
+      newErrors.type = 'Type is required';
     }
     
-    if (!militaryUnit.commanderName.trim()) {
-      newErrors.commanderName = 'Commander name is required';
+    if (!weapon.caliber.trim()) {
+      newErrors.caliber = 'Caliber is required';
     }
     
-    if (!militaryUnit.type) {
-      newErrors.type = 'Unit type is required';
+    if (!weapon.manufacturerId) {
+      newErrors.manufacturerId = 'Manufacturer is required';
     }
     
-    if (!militaryUnit.personnel || militaryUnit.personnel <= 0) {
-      newErrors.personnel = 'Personnel count must be greater than 0';
+    if (!weapon.serialNumber.trim()) {
+      newErrors.serialNumber = 'Serial number is required';
     }
     
-    if (!militaryUnit.established.trim()) {
-      newErrors.established = 'Established date is required';
-    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(militaryUnit.established)) {
-      newErrors.established = 'Use format YYYY-MM-DD';
+    if (!weapon.manufactureDate) {
+      newErrors.manufactureDate = 'Manufacture date is required';
+    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(weapon.manufactureDate)) {
+      newErrors.manufactureDate = 'Use format YYYY-MM-DD';
+    }
+    
+    if (!weapon.status) {
+      newErrors.status = 'Status is required';
     }
     
     setErrors(newErrors);
@@ -127,9 +151,9 @@ const MilitaryUnitForm: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     
-    setMilitaryUnit((prev) => ({
+    setWeapon((prev) => ({
       ...prev,
-      [name]: name === 'personnel' ? parseInt(value, 10) || 0 : value,
+      [name]: name === 'manufacturerId' ? parseInt(value, 10) || 0 : value,
     }));
     
     // Clear error when user starts typing again
@@ -157,10 +181,10 @@ const MilitaryUnitForm: React.FC = () => {
       await new Promise((resolve) => setTimeout(resolve, 2000));
       
       // In a real app, you would make an API call here
-      // isEditMode ? updateMilitaryUnit(id, militaryUnit) : createMilitaryUnit(militaryUnit);
+      // isEditMode ? updateWeapon(id, weapon) : createWeapon(weapon);
       
       // Only navigate after successful submission
-      navigate('/military-units');
+      navigate('/weapons');
     } catch (error) {
       setSubmitError('An error occurred while saving. Please try again.');
     } finally {
@@ -169,7 +193,7 @@ const MilitaryUnitForm: React.FC = () => {
   };
   
   const handleCancel = () => {
-    navigate('/military-units');
+    navigate('/weapons');
   };
 
   if (!isInitialized) {
@@ -179,8 +203,8 @@ const MilitaryUnitForm: React.FC = () => {
   return (
     <Box sx={{ position: 'relative', zIndex: 2 }}>
       <PageHeader
-        title={isEditMode ? 'Edit Military Unit' : 'Add Military Unit'}
-        icon={<MilitaryTechIcon fontSize="large" />}
+        title={isEditMode ? 'Edit Weapon' : 'Add Weapon'}
+        icon={<SaveIcon fontSize="large" />}
         showButton={false}
       />
       
@@ -205,9 +229,9 @@ const MilitaryUnitForm: React.FC = () => {
           <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
             <TextField
               fullWidth
-              label="Unit Name"
+              label="Name"
               name="name"
-              value={militaryUnit.name}
+              value={weapon.name}
               onChange={handleInputChange}
               error={!!errors.name}
               helperText={errors.name}
@@ -218,42 +242,16 @@ const MilitaryUnitForm: React.FC = () => {
           <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
             <TextField
               fullWidth
-              label="Location"
-              name="location"
-              value={militaryUnit.location}
-              onChange={handleInputChange}
-              error={!!errors.location}
-              helperText={errors.location}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Commander Name"
-              name="commanderName"
-              value={militaryUnit.commanderName}
-              onChange={handleInputChange}
-              error={!!errors.commanderName}
-              helperText={errors.commanderName}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
               select
-              label="Unit Type"
+              label="Type"
               name="type"
-              value={militaryUnit.type}
+              value={weapon.type}
               onChange={handleInputChange}
               error={!!errors.type}
               helperText={errors.type}
               required
             >
-              {unitTypes.map((type) => (
+              {weaponTypes.map((type) => (
                 <MenuItem key={type} value={type}>
                   {type}
                 </MenuItem>
@@ -264,28 +262,91 @@ const MilitaryUnitForm: React.FC = () => {
           <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
             <TextField
               fullWidth
-              label="Personnel Count"
-              name="personnel"
-              type="number"
-              value={militaryUnit.personnel || ''}
+              label="Caliber"
+              name="caliber"
+              value={weapon.caliber}
               onChange={handleInputChange}
-              error={!!errors.personnel}
-              helperText={errors.personnel}
+              error={!!errors.caliber}
+              helperText={errors.caliber}
               required
-              inputProps={{ min: 1 }}
             />
           </Box>
           
           <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
             <TextField
               fullWidth
-              label="Established (YYYY-MM-DD)"
-              name="established"
-              value={militaryUnit.established}
+              select
+              label="Manufacturer"
+              name="manufacturerId"
+              value={weapon.manufacturerId || ''}
               onChange={handleInputChange}
-              error={!!errors.established}
-              helperText={errors.established}
+              error={!!errors.manufacturerId}
+              helperText={errors.manufacturerId}
               required
+            >
+              {mockManufacturers.map((manufacturer) => (
+                <MenuItem key={manufacturer.id} value={manufacturer.id}>
+                  {manufacturer.name}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Box>
+          
+          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
+            <TextField
+              fullWidth
+              label="Serial Number"
+              name="serialNumber"
+              value={weapon.serialNumber}
+              onChange={handleInputChange}
+              error={!!errors.serialNumber}
+              helperText={errors.serialNumber}
+              required
+            />
+          </Box>
+          
+          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
+            <TextField
+              fullWidth
+              label="Manufacture Date (YYYY-MM-DD)"
+              name="manufactureDate"
+              value={weapon.manufactureDate}
+              onChange={handleInputChange}
+              error={!!errors.manufactureDate}
+              helperText={errors.manufactureDate}
+              required
+            />
+          </Box>
+          
+          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
+            <TextField
+              fullWidth
+              select
+              label="Status"
+              name="status"
+              value={weapon.status}
+              onChange={handleInputChange}
+              error={!!errors.status}
+              helperText={errors.status}
+              required
+            >
+              {statusOptions.map((status) => (
+                <MenuItem key={status} value={status}>
+                  {status}
+                </MenuItem>
+              ))}
+            </TextField>
+          </Box>
+          
+          <Box sx={{ flex: '1 1 100%', minWidth: '300px' }}>
+            <TextField
+              fullWidth
+              label="Description"
+              name="description"
+              value={weapon.description}
+              onChange={handleInputChange}
+              multiline
+              rows={4}
             />
           </Box>
         </Box>
@@ -317,4 +378,4 @@ const MilitaryUnitForm: React.FC = () => {
   );
 };
 
-export default MilitaryUnitForm; 
+export default WeaponForm; 

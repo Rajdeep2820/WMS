@@ -81,6 +81,7 @@ const WeaponAssignmentForm: React.FC = () => {
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isInitialized, setIsInitialized] = useState(false);
   
   const statusOptions: Array<WeaponAssignment['status']> = [
     'Active',
@@ -90,10 +91,10 @@ const WeaponAssignmentForm: React.FC = () => {
   ];
   
   useEffect(() => {
-    if (isEditMode) {
+    if (isEditMode && id) {
       // In a real app, this would be an API call
       const foundAssignment = mockAssignments.find(
-        (a) => a.id === parseInt(id!, 10)
+        (a) => a.id === parseInt(id, 10)
       );
       
       if (foundAssignment) {
@@ -104,6 +105,7 @@ const WeaponAssignmentForm: React.FC = () => {
         navigate('/weapon-assignments');
       }
     }
+    setIsInitialized(true);
   }, [id, isEditMode, navigate]);
   
   const validateForm = (): boolean => {
@@ -158,6 +160,7 @@ const WeaponAssignmentForm: React.FC = () => {
     e.preventDefault();
     
     if (!validateForm()) {
+      setSubmitError('Please fill in all required fields correctly.');
       return;
     }
     
@@ -165,12 +168,13 @@ const WeaponAssignmentForm: React.FC = () => {
     setSubmitError(null);
     
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      // Simulate API call with a longer delay to show loading state
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       
       // In a real app, you would make an API call here
       // isEditMode ? updateAssignment(id, assignment) : createAssignment(assignment);
       
+      // Only navigate after successful submission
       navigate('/weapon-assignments');
     } catch (error) {
       setSubmitError('An error occurred while saving. Please try again.');
@@ -182,9 +186,13 @@ const WeaponAssignmentForm: React.FC = () => {
   const handleCancel = () => {
     navigate('/weapon-assignments');
   };
+
+  if (!isInitialized) {
+    return null; // Don't render anything until initialization is complete
+  }
   
   return (
-    <Box>
+    <Box sx={{ position: 'relative', zIndex: 2 }}>
       <PageHeader
         title={isEditMode ? 'Edit Weapon Assignment' : 'Add Weapon Assignment'}
         icon={<AssignmentIcon fontSize="large" />}
@@ -198,6 +206,8 @@ const WeaponAssignmentForm: React.FC = () => {
           p: 3,
           mb: 3,
           borderRadius: theme.shape.borderRadius,
+          position: 'relative',
+          zIndex: 2,
         }}
       >
         {submitError && (

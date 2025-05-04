@@ -18,7 +18,7 @@ const Layout: React.FC = () => {
   };
 
   return (
-    <Box sx={{ display: 'flex', height: '100vh' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
       <CssBaseline />
       <Navbar onSidebarOpen={handleSidebarOpen} />
       <Sidebar
@@ -36,10 +36,14 @@ const Layout: React.FC = () => {
           minHeight: '100vh',
           pt: { xs: 3, sm: 3 },
           mt: 8, // Adjust for the fixed AppBar height
+          position: 'relative',
+          zIndex: 1,
         }}
       >
         <Toolbar />
-        <Outlet />
+        <Box sx={{ position: 'relative', zIndex: 2, height: '100%' }}>
+          <Outlet />
+        </Box>
       </Box>
     </Box>
   );
