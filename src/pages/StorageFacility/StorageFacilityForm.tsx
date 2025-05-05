@@ -3,53 +3,27 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Paper,
-  Typography,
   TextField,
   Button,
-  MenuItem,
   Divider,
   useTheme,
   Alert,
+  MenuItem,
+  CircularProgress,
+  Snackbar
 } from '@mui/material';
-import HomeWorkIcon from '@mui/icons-material/HomeWork';
+import WarehouseIcon from '@mui/icons-material/Warehouse';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { PageHeader } from '../../components/common';
-import { StorageFacility } from '../../types';
+import { StorageFacility } from '../../types/storageFacility';
+import { storageFacilityApi } from '../../services/api';
 
-// Mock storage facilities
-const mockFacilities: StorageFacility[] = [
-  {
-    id: 1,
-    name: 'Alpha Armory',
-    location: 'Building 12, Zone A, Base North',
-    capacity: 500,
-    securityLevel: 'High',
-    manager: 'Richard Wilson',
-    contact: '+1-555-123-4567',
-    status: 'Operational',
-  },
-  {
-    id: 2,
-    name: 'Bravo Bunker',
-    location: 'Underground Level 2, Zone C, Base South',
-    capacity: 1200,
-    securityLevel: 'Maximum',
-    manager: 'Jessica Martinez',
-    contact: '+1-555-987-6543',
-    status: 'Operational',
-  },
-];
+const securityLevelOptions = ['Low', 'Medium', 'High', 'Maximum'];
+const statusOptions = ['Operational', 'Under Maintenance', 'Full', 'Decommissioned'];
 
-const emptyFacility: Omit<StorageFacility, 'id'> = {
-  name: '',
-  location: '',
-  capacity: 0,
-  securityLevel: '',
-  manager: '',
-  contact: '',
-  status: 'Operational',
-};
+// Define the form data type using the actual database schema
+type StorageFacilityFormData = Omit<StorageFacility, 'Facility_ID'>;
 
 const StorageFacilityForm: React.FC = () => {
   const { id } = useParams();
@@ -57,73 +31,84 @@ const StorageFacilityForm: React.FC = () => {
   const theme = useTheme();
   const isEditMode = id !== 'new';
   
-  const [facility, setFacility] = useState<Omit<StorageFacility, 'id'>>(emptyFacility);
+  const initialStorageFacilityState: StorageFacilityFormData = {
+    Name: '',
+    Location: '',
+    Capacity: 0,
+    Security_Level: 'Medium',
+    Status: 'Operational',
+  };
+  
+  const [storageFacility, setStorageFacility] = useState<StorageFacilityFormData>(initialStorageFacilityState);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(isEditMode);
   
-  const securityLevels = [
-    'Low',
-    'Medium',
-    'High',
-    'Maximum',
-  ];
-  
-  const statusOptions: Array<StorageFacility['status']> = [
-    'Operational',
-    'Under Maintenance',
-    'Full',
-    'Decommissioned',
-  ];
+  // Fetch required data
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      // If in edit mode, fetch the storage facility details
+      if (isEditMode && id) {
+        try {
+          const facilityId = parseInt(id, 10);
+          console.log('Fetching storage facility with ID:', facilityId);
+          
+          const response = await storageFacilityApi.getById(facilityId);
+          console.log('Fetched storage facility:', response);
+          
+          setStorageFacility({
+            Name: response.Name || '',
+            Location: response.Location || '',
+            Capacity: response.Capacity || 0,
+            Security_Level: response.Security_Level || 'Medium',
+            Status: response.Status || 'Operational',
+          });
+        } catch (error) {
+          console.error('Error fetching storage facility:', error);
+          setSubmitError('Failed to load facility data. Please try again.');
+          setTimeout(() => navigate('/storage-facilities'), 3000);
+        }
+      }
+    } catch (error) {
+      console.error('Error in fetchData:', error);
+      setSubmitError('Failed to load required data. Please try again.');
+    } finally {
+      setLoading(false);
+      setIsInitialized(true);
+    }
+  };
   
   useEffect(() => {
-    if (isEditMode && id) {
-      // In a real app, this would be an API call
-      const foundFacility = mockFacilities.find(
-        (f) => f.id === parseInt(id, 10)
-      );
-      
-      if (foundFacility) {
-        const { id, ...rest } = foundFacility;
-        setFacility(rest);
-      } else {
-        // Facility not found
-        navigate('/storage-facilities');
-      }
-    }
-    setIsInitialized(true);
-  }, [id, isEditMode, navigate]);
+    fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, isEditMode]);
   
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
     
-    if (!facility.name.trim()) {
-      newErrors.name = 'Name is required';
+    if (!storageFacility.Name?.trim()) {
+      newErrors.Name = 'Facility name is required';
     }
     
-    if (!facility.location.trim()) {
-      newErrors.location = 'Location is required';
+    if (!storageFacility.Location?.trim()) {
+      newErrors.Location = 'Location is required';
     }
     
-    if (facility.capacity <= 0) {
-      newErrors.capacity = 'Capacity must be greater than 0';
+    if (!storageFacility.Capacity || storageFacility.Capacity <= 0) {
+      newErrors.Capacity = 'Capacity must be greater than 0';
     }
     
-    if (!facility.securityLevel) {
-      newErrors.securityLevel = 'Security level is required';
+    if (!storageFacility.Security_Level?.trim()) {
+      newErrors.Security_Level = 'Security level is required';
     }
     
-    if (!facility.manager.trim()) {
-      newErrors.manager = 'Manager is required';
-    }
-    
-    if (!facility.contact.trim()) {
-      newErrors.contact = 'Contact information is required';
-    }
-    
-    if (!facility.status) {
-      newErrors.status = 'Status is required';
+    if (!storageFacility.Status?.trim()) {
+      newErrors.Status = 'Status is required';
     }
     
     setErrors(newErrors);
@@ -133,10 +118,21 @@ const StorageFacilityForm: React.FC = () => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     
-    setFacility((prev) => ({
-      ...prev,
-      [name]: name === 'capacity' ? parseInt(value, 10) || 0 : value,
-    }));
+    console.log('Input changed:', name, value);
+    
+    setStorageFacility((prev) => {
+      const updatedValue = 
+        name === 'Capacity' ? 
+          parseInt(value, 10) || 0 
+        : value;
+      
+      console.log('Setting', name, 'to', updatedValue);
+      
+      return {
+        ...prev,
+        [name]: updatedValue,
+      };
+    });
     
     // Clear error when user starts typing again
     if (errors[name]) {
@@ -159,16 +155,37 @@ const StorageFacilityForm: React.FC = () => {
     setSubmitError(null);
     
     try {
-      // Simulate API call with a longer delay to show loading state
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      console.log('Submitting data:', storageFacility);
       
-      // In a real app, you would make an API call here
-      // isEditMode ? updateFacility(id, facility) : createFacility(facility);
+      if (isEditMode && id) {
+        const facilityId = parseInt(id, 10);
+        console.log('Updating facility ID:', facilityId);
+        
+        const response = await storageFacilityApi.update(facilityId, storageFacility);
+        console.log('Update response:', response);
+        
+        setSuccessMessage('Storage facility updated successfully');
+      } else {
+        console.log('Creating new facility');
+        
+        const response = await storageFacilityApi.create(storageFacility);
+        console.log('Create response:', response);
+        
+        setSuccessMessage('Storage facility created successfully');
+      }
       
-      // Only navigate after successful submission
-      navigate('/storage-facilities');
-    } catch (error) {
-      setSubmitError('An error occurred while saving. Please try again.');
+      // Delay navigation to show success message
+      setTimeout(() => navigate('/storage-facilities'), 1500);
+    } catch (error: any) {
+      console.error('Error saving storage facility:', error);
+      let errorMessage = 'An error occurred while saving. Please try again.';
+      
+      if (error.response) {
+        console.error('Error response:', error.response.data);
+        errorMessage = error.response.data.message || errorMessage;
+      }
+      
+      setSubmitError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
@@ -177,16 +194,31 @@ const StorageFacilityForm: React.FC = () => {
   const handleCancel = () => {
     navigate('/storage-facilities');
   };
-
+  
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
   if (!isInitialized) {
-    return null; // Don't render anything until initialization is complete
+    return null;
   }
   
   return (
     <Box sx={{ position: 'relative', zIndex: 2 }}>
+      <Snackbar
+        open={!!successMessage}
+        autoHideDuration={3000}
+        message={successMessage}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      />
+      
       <PageHeader
         title={isEditMode ? 'Edit Storage Facility' : 'Add Storage Facility'}
-        icon={<HomeWorkIcon fontSize="large" />}
+        icon={<WarehouseIcon fontSize="large" />}
         showButton={false}
       />
       
@@ -197,8 +229,6 @@ const StorageFacilityForm: React.FC = () => {
           p: 3,
           mb: 3,
           borderRadius: theme.shape.borderRadius,
-          position: 'relative',
-          zIndex: 2,
         }}
       >
         {submitError && (
@@ -207,127 +237,91 @@ const StorageFacilityForm: React.FC = () => {
           </Alert>
         )}
         
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Facility Name"
-              name="name"
-              value={facility.name}
-              onChange={handleInputChange}
-              error={!!errors.name}
-              helperText={errors.name}
-              required
-            />
-          </Box>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 3 }}>
+          <TextField
+            label="Facility Name"
+            name="Name"
+            value={storageFacility.Name}
+            onChange={handleInputChange}
+            fullWidth
+            required
+            error={!!errors.Name}
+            helperText={errors.Name}
+          />
           
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Location"
-              name="location"
-              value={facility.location}
-              onChange={handleInputChange}
-              error={!!errors.location}
-              helperText={errors.location}
-              required
-            />
-          </Box>
+          <TextField
+            label="Location"
+            name="Location"
+            value={storageFacility.Location}
+            onChange={handleInputChange}
+            fullWidth
+            required
+            error={!!errors.Location}
+            helperText={errors.Location}
+          />
           
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Capacity"
-              name="capacity"
-              type="number"
-              value={facility.capacity}
-              onChange={handleInputChange}
-              error={!!errors.capacity}
-              helperText={errors.capacity}
-              inputProps={{ min: 1 }}
-              required
-            />
-          </Box>
+          <TextField
+            label="Capacity"
+            name="Capacity"
+            type="number"
+            value={storageFacility.Capacity}
+            onChange={handleInputChange}
+            fullWidth
+            required
+            error={!!errors.Capacity}
+            helperText={errors.Capacity}
+          />
           
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Security Level"
-              name="securityLevel"
-              value={facility.securityLevel}
-              onChange={handleInputChange}
-              error={!!errors.securityLevel}
-              helperText={errors.securityLevel}
-              required
-            >
-              {securityLevels.map((level) => (
-                <MenuItem key={level} value={level}>
-                  {level}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
+          <TextField
+            select
+            label="Security Level"
+            name="Security_Level"
+            value={storageFacility.Security_Level}
+            onChange={handleInputChange}
+            fullWidth
+            required
+            error={!!errors.Security_Level}
+            helperText={errors.Security_Level}
+          >
+            {securityLevelOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </TextField>
           
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Manager"
-              name="manager"
-              value={facility.manager}
-              onChange={handleInputChange}
-              error={!!errors.manager}
-              helperText={errors.manager}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Contact Information"
-              name="contact"
-              value={facility.contact}
-              onChange={handleInputChange}
-              error={!!errors.contact}
-              helperText={errors.contact}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Status"
-              name="status"
-              value={facility.status}
-              onChange={handleInputChange}
-              error={!!errors.status}
-              helperText={errors.status}
-              required
-            >
-              {statusOptions.map((status) => (
-                <MenuItem key={status} value={status}>
-                  {status}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
+          <TextField
+            select
+            label="Status"
+            name="Status"
+            value={storageFacility.Status}
+            onChange={handleInputChange}
+            fullWidth
+            required
+            error={!!errors.Status}
+            helperText={errors.Status}
+          >
+            {statusOptions.map((option) => (
+              <MenuItem key={option} value={option}>
+                {option}
+              </MenuItem>
+            ))}
+          </TextField>
         </Box>
         
         <Divider sx={{ my: 3 }} />
         
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
           <Button
             variant="outlined"
-            color="primary"
+            color="secondary"
             onClick={handleCancel}
             startIcon={<CancelIcon />}
             disabled={isSubmitting}
           >
             Cancel
           </Button>
+          
           <Button
             type="submit"
             variant="contained"
@@ -335,7 +329,7 @@ const StorageFacilityForm: React.FC = () => {
             startIcon={<SaveIcon />}
             disabled={isSubmitting}
           >
-            {isSubmitting ? 'Saving...' : 'Save'}
+            {isSubmitting ? 'Saving...' : isEditMode ? 'Update' : 'Save'}
           </Button>
         </Box>
       </Paper>

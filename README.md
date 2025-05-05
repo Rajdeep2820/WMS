@@ -1,46 +1,180 @@
-# Getting Started with Create React App
+# Weaponry Management System
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A comprehensive system for managing military weaponry, personnel, and inventory with a React frontend and Node.js/Express backend.
 
-## Available Scripts
+## System Features
 
-In the project directory, you can run:
+- **Inventory Management**: Track weapons, ammunition, and maintenance records
+- **Personnel Management**: Manage military units and soldier data
+- **Assignment Tracking**: Monitor weapon assignments to soldiers
+- **Storage Management**: Handle storage facilities and inventory locations
+- **Reporting**: Generate insights on weapon usage and status
 
-### `npm start`
+## Architecture
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+### Frontend
+- **Framework**: React with TypeScript
+- **UI Components**: Material UI
+- **State Management**: React Hooks
+- **Routing**: React Router
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+### Backend
+- **Framework**: Node.js with Express
+- **Database**: MySQL
 
-### `npm test`
+## Getting Started
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Prerequisites
 
-### `npm run build`
+- Node.js (v14+)
+- MySQL (v8+)
+- npm or yarn
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+### Database Setup
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+1. Create a MySQL database named `weaponry_management`
+2. Configure database connection settings in `/backend/.env` (create this file if it doesn't exist):
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+```
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=your_password
+DB_NAME=weaponry_management
+PORT=5001
+```
 
-### `npm run eject`
+3. Run the database setup script to create tables and load sample data:
+```
+cd backend
+npm run setup-db
+```
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+For more detailed information about the database structure and setup, please refer to the `DATABASE_README.md` file in the backend directory.
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+### Installation
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+1. Clone the repository
+2. Install backend dependencies:
+   ```
+   cd backend
+   npm install
+   ```
+3. Install frontend dependencies:
+   ```
+   cd ..
+   npm install
+   ```
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+### Running the Application
 
-## Learn More
+Use our development script that starts both backend and frontend:
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+```
+./start-dev.sh
+```
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+Alternatively, you can start the servers separately:
+
+**Backend:**
+```
+cd backend
+npm start
+```
+
+**Frontend:**
+```
+npm start
+```
+
+The frontend will be available at `http://localhost:3000` and the backend API at `http://localhost:5001/api`.
+
+## API Endpoints
+
+### Manufacturers
+- `GET /api/manufacturers` - Get all manufacturers
+- `GET /api/manufacturers/:id` - Get manufacturer by ID
+- `POST /api/manufacturers` - Create new manufacturer
+- `PUT /api/manufacturers/:id` - Update manufacturer
+- `DELETE /api/manufacturers/:id` - Delete manufacturer
+
+### Military Units
+- `GET /api/military-units` - Get all military units
+- `GET /api/military-units/:id` - Get military unit by ID
+- `POST /api/military-units` - Create new military unit
+- `PUT /api/military-units/:id` - Update military unit
+- `DELETE /api/military-units/:id` - Delete military unit
+
+### Weapons
+- `GET /api/weapons` - Get all weapons
+- `GET /api/weapons/:id` - Get weapon by ID
+- `POST /api/weapons` - Create new weapon
+- `PUT /api/weapons/:id` - Update weapon
+- `DELETE /api/weapons/:id` - Delete weapon
+
+### Soldiers
+- `GET /api/soldiers` - Get all soldiers
+- `GET /api/soldiers/:id` - Get soldier by ID
+- `POST /api/soldiers` - Create new soldier
+- `PUT /api/soldiers/:id` - Update soldier
+- `DELETE /api/soldiers/:id` - Delete soldier
+
+### Weapon Assignments
+- `GET /api/weapon-assignments` - Get all weapon assignments
+- `GET /api/weapon-assignments/:id` - Get weapon assignment by ID
+- `POST /api/weapon-assignments` - Create new weapon assignment
+- `PUT /api/weapon-assignments/:id` - Update weapon assignment
+- `DELETE /api/weapon-assignments/:id` - Delete weapon assignment
+
+### Storage Facilities
+- `GET /api/storage-facilities` - Get all storage facilities
+- `GET /api/storage-facilities/:id` - Get storage facility by ID
+- `POST /api/storage-facilities` - Create new storage facility
+- `PUT /api/storage-facilities/:id` - Update storage facility
+- `DELETE /api/storage-facilities/:id` - Delete storage facility
+
+### Weapon Maintenance
+- `GET /api/weapon-maintenance` - Get all maintenance records
+- `GET /api/weapon-maintenance/:id` - Get maintenance record by ID
+- `POST /api/weapon-maintenance` - Create new maintenance record
+- `PUT /api/weapon-maintenance/:id` - Update maintenance record
+- `DELETE /api/weapon-maintenance/:id` - Delete maintenance record
+
+### Ammunition
+- `GET /api/ammunition` - Get all ammunition
+- `GET /api/ammunition/:id` - Get ammunition by ID
+- `POST /api/ammunition` - Create new ammunition
+- `PUT /api/ammunition/:id` - Update ammunition
+- `DELETE /api/ammunition/:id` - Delete ammunition
+
+## Development
+
+### Project Structure
+
+```
+/
+├── backend/                # Backend server code
+│   ├── config/             # Configuration files
+│   ├── controllers/        # API controllers
+│   ├── models/             # Database models
+│   ├── routes/             # API routes
+│   └── server.js           # Server entry point
+├── src/                    # Frontend React code
+│   ├── components/         # Reusable UI components
+│   ├── pages/              # Page components
+│   ├── services/           # API services
+│   ├── types/              # TypeScript interfaces
+│   ├── utils/              # Utility functions
+│   ├── App.tsx             # Main App component
+│   └── index.tsx           # React entry point
+└── package.json            # Project configuration
+```
+
+## License
+
+This project is licensed under the MIT License.
+
+## Contributors
+
+- Project Lead: [Your Name]
+- Backend Developer: [Backend Developer Name]
+- Frontend Developer: [Frontend Developer Name]

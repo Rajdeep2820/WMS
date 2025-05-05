@@ -1,109 +1,129 @@
 export interface Manufacturer {
-  id: number;
-  name: string;
-  country: string;
-  established: string;
-  contact: string;
-  email: string;
-  phone: string;
-  address: string;
+  Manufacturer_ID?: number;
+  Name: string;
+  Country: string;
+  Contact_Info: string;
+  Status: 'Active' | 'Inactive' | 'Suspended';
+  // Calculated fields from joins
+  Weapon_Count?: number;
+  Ammunition_Count?: number;
 }
 
 export interface MilitaryUnit {
-  id: number;
-  name: string;
-  location: string;
-  commanderName: string;
-  type: string;
-  personnel: number;
-  established: string;
+  Unit_ID?: number;
+  Name: string;
+  Branch: string;
+  Location: string;
+  Commanding_Officer: string;
+  // Calculated fields from joins
+  Soldier_Count?: number;
+  Weapon_Assignment_Count?: number;
 }
 
 export interface Weapon {
-  id: number;
-  name: string;
-  type: string;
-  caliber: string;
-  manufacturerId: number;
-  manufacturerName?: string;
-  serialNumber: string;
-  manufactureDate: string;
-  status: 'Available' | 'Assigned' | 'Maintenance' | 'Retired';
-  description: string;
+  Weapon_ID?: number;
+  Name: string;
+  Type: string;
+  Model: string;
+  Serial_Number?: string;
+  Manufacturer_ID: number;
+  Manufacturer_Name?: string;
+  Caliber?: string;
+  Acquisition_Date?: string;
+  Status: 'Active' | 'Inactive' | 'Under Maintenance';
+  Assigned_Unit_ID?: number;
+  Storage_Facility_ID?: number;
+  Last_Inspection_Date?: string;
+  // Joined fields
+  Facility_Name?: string;
+  Unit_Name?: string;
 }
 
 export interface Soldier {
-  id: number;
-  firstName: string;
-  lastName: string;
-  rank: string;
-  serialNumber: string;
-  dateOfBirth: string;
-  joinDate: string;
-  unitId: number;
-  unitName?: string;
-  status: 'Active' | 'Leave' | 'Training' | 'Deployed' | 'Retired';
-  specialization: string;
+  Soldier_ID?: number;
+  First_Name: string;
+  Last_Name: string;
+  Rank: string;
+  Serial_Number: string;
+  Date_of_Birth: string;
+  Join_Date: string;
+  Unit_ID: number;
+  Status: 'Active' | 'Inactive' | 'On Leave';
+  Specialization: string;
+  // Joined fields
+  Unit_Name?: string;
 }
 
 export interface WeaponAssignment {
-  id: number;
-  weaponId: number;
-  weaponName?: string;
-  soldierId: number;
-  soldierName?: string;
-  assignDate: string;
-  dueDate?: string;
-  status: 'Active' | 'Returned' | 'Lost' | 'Damaged';
-  notes?: string;
+  Assignment_ID?: number;
+  Weapon_ID: number;
+  Soldier_ID: number;
+  Unit_ID: number;
+  Assignment_Date: string;
+  Return_Date?: string;
+  Status: 'Active' | 'Returned' | 'Lost';
+  Notes?: string;
+  // Joined fields
+  Weapon_Serial?: string;
+  First_Name?: string;
+  Last_Name?: string;
+  Unit_Name?: string;
 }
 
 export interface StorageFacility {
-  id: number;
-  name: string;
-  location: string;
-  capacity: number;
-  securityLevel: string;
-  manager: string;
-  contact: string;
-  status: 'Operational' | 'Under Maintenance' | 'Full' | 'Decommissioned';
+  Facility_ID?: number;
+  Name: string;
+  Location: string;
+  Capacity: number;
+  Security_Level: 'Low' | 'Medium' | 'High' | 'Maximum';
+  Status: 'Active' | 'Inactive' | 'Under Maintenance';
+  Unit_ID?: number;
+  Manager: string;
+  Contact: string;
+  // Joined fields
+  Unit_Name?: string;
 }
 
-export interface Maintenance {
-  id: number;
-  weaponId: number;
-  weaponName?: string;
-  type: 'Regular' | 'Repair' | 'Upgrade' | 'Inspection';
-  startDate: string;
-  endDate?: string;
-  technician: string;
-  status: 'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled';
-  cost?: number;
-  notes?: string;
+export interface WeaponMaintenance {
+  Maintenance_ID?: number;
+  Weapon_ID: number;
+  Type: string;
+  Start_Date: string;
+  End_Date?: string;
+  Technician?: string;
+  Cost?: number;
+  Status: string;
+  Notes?: string;
+  // These fields are for display purposes
+  Weapon_Name?: string;
+  Weapon_Serial?: string;
+  First_Name?: string;
+  Last_Name?: string;
 }
 
 export interface Ammunition {
-  id: number;
-  type: string;
-  caliber: string;
-  quantity: number;
-  manufacturerId: number;
-  manufacturerName?: string;
-  batchNumber: string;
-  manufactureDate: string;
-  expirationDate?: string;
-  storageId: number;
-  storageName?: string;
-  status: 'Available' | 'Reserved' | 'Depleted' | 'Expired';
+  Ammunition_ID?: number;
+  Name: string;
+  Type: string;
+  Caliber?: string;
+  Quantity: number;
+  Manufacturer_ID?: number;
+  Batch_Number?: string;
+  Production_Date?: string;
+  Expiration_Date?: string;
+  Facility_ID?: number;
+  Status: 'Available' | 'Reserved' | 'Depleted' | 'Expired';
+  // Joined fields
+  Manufacturer_Name?: string;
+  Facility_Name?: string;
 }
 
 export interface DashboardStats {
   totalWeapons: number;
-  availableWeapons: number;
+  activeWeapons: number;
   totalSoldiers: number;
-  activeSoldiers: number;
-  totalFacilities: number;
-  scheduledMaintenance: number;
+  totalUnits: number;
+  totalMaintenance: number;
   weaponsByType: {
     type: string;
     count: number;
@@ -114,10 +134,6 @@ export interface DashboardStats {
   }[];
   maintenanceByStatus: {
     status: string;
-    count: number;
-  }[];
-  ammunitionByType: {
-    type: string;
     count: number;
   }[];
 }
@@ -133,4 +149,9 @@ export interface PaginationConfig {
   page: number;
   pageSize: number;
   total: number;
+}
+
+export interface SelectOption {
+  value: string | number;
+  label: string;
 } 

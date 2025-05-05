@@ -1,79 +1,124 @@
-import React, { useState } from 'react';
-import { Box, Button, useTheme, Chip } from '@mui/material';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import { DataTable, PageHeader, SearchBar } from '../../components/common';
-import { WeaponAssignment, SortConfig } from '../../types';
-
-// Mock data for weapon assignments
-const mockAssignments: WeaponAssignment[] = [
-  {
-    id: 1,
-    weaponId: 1,
-    weaponName: 'M4A1 Carbine',
-    soldierId: 1,
-    soldierName: 'John Smith',
-    assignDate: '2023-01-10',
-    dueDate: '2023-07-10',
-    status: 'Active',
-    notes: 'Standard issue for training exercise',
-  },
-  {
-    id: 2,
-    weaponId: 2,
-    weaponName: 'M9 Beretta',
-    soldierId: 2,
-    soldierName: 'Sarah Johnson',
-    assignDate: '2023-02-05',
-    dueDate: '2023-08-05',
-    status: 'Active',
-    notes: 'Secondary weapon for field operations',
-  },
-  {
-    id: 3,
-    weaponId: 3,
-    weaponName: 'M249 SAW',
-    soldierId: 3,
-    soldierName: 'Michael Williams',
-    assignDate: '2023-03-15',
-    dueDate: '2023-04-15',
-    status: 'Returned',
-    notes: 'Training exercise complete',
-  },
-  {
-    id: 4,
-    weaponId: 4,
-    weaponName: 'M16A4',
-    soldierId: 4,
-    soldierName: 'Emily Davis',
-    assignDate: '2023-04-01',
-    status: 'Lost',
-    notes: 'Reported lost during field exercise. Investigation ongoing.',
-  },
-  {
-    id: 5,
-    weaponId: 5,
-    weaponName: 'Barrett M82',
-    soldierId: 5,
-    soldierName: 'David Martinez',
-    assignDate: '2023-05-20',
-    dueDate: '2023-11-20',
-    status: 'Damaged',
-    notes: 'Scope damaged during operation. Under repair.',
-  },
-];
+import { 
+  Box, 
+  Button, 
+  Paper, 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableContainer, 
+  TableHead, 
+  TableRow,
+  TablePagination,
+  IconButton,
+  Chip,
+  TextField,
+  Typography,
+  Alert,
+  CircularProgress
+} from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import { PageHeader, ConfirmDialog } from '../../components/common';
+import { WeaponAssignment } from '../../types';
+import { weaponAssignmentApi } from '../../services/api';
+import { format } from 'date-fns';
 
 const WeaponAssignmentList: React.FC = () => {
-  const [assignments, setAssignments] = useState<WeaponAssignment[]>(mockAssignments);
-  const [page, setPage] = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'assignDate', direction: 'desc' });
-  
-  const theme = useTheme();
   const navigate = useNavigate();
-  
-  // Get status color
+  const [assignments, setAssignments] = useState<WeaponAssignment[]>([]);
+  const [filteredAssignments, setFilteredAssignments] = useState<WeaponAssignment[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [page, setPage] = useState<number>(0);
+  const [rowsPerPage, setRowsPerPage] = useState<number>(10);
+  const [openDialog, setOpenDialog] = useState<boolean>(false);
+  const [selectedAssignmentId, setSelectedAssignmentId] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetchAssignments();
+  }, []);
+
+  useEffect(() => {
+    filterAssignments();
+  }, [searchTerm, assignments]);
+
+  const fetchAssignments = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await weaponAssignmentApi.getAll();
+      setAssignments(data);
+      setFilteredAssignments(data);
+    } catch (error) {
+      console.error('Error fetching weapon assignments:', error);
+      setError('Failed to load weapon assignments. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filterAssignments = () => {
+    if (!searchTerm) {
+      setFilteredAssignments(assignments);
+      return;
+    }
+
+    const filtered = assignments.filter((assignment) => {
+      const searchFields = [
+        assignment.Weapon_Serial,
+        assignment.First_Name,
+        assignment.Last_Name,
+        assignment.Unit_Name,
+        assignment.Status,
+      ];
+
+      return searchFields.some(
+        (field) => field && field.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    });
+
+    setFilteredAssignments(filtered);
+    setPage(0);
+  };
+
+  const handleChangePage = (event: unknown, newPage: number) => {
+    setPage(newPage);
+  };
+
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setRowsPerPage(parseInt(event.target.value, 10));
+    setPage(0);
+  };
+
+  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(event.target.value);
+  };
+
+  const handleDelete = (id: number) => {
+    setSelectedAssignmentId(id);
+    setOpenDialog(true);
+  };
+
+  const confirmDelete = async () => {
+    if (selectedAssignmentId) {
+      try {
+        setError(null);
+        await weaponAssignmentApi.delete(selectedAssignmentId);
+        setOpenDialog(false);
+        await fetchAssignments();
+      } catch (error) {
+        console.error('Error deleting weapon assignment:', error);
+        setError('Failed to delete the weapon assignment. Please try again.');
+        setOpenDialog(false);
+      }
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'Active':
@@ -82,168 +127,154 @@ const WeaponAssignmentList: React.FC = () => {
         return 'info';
       case 'Lost':
         return 'error';
-      case 'Damaged':
-        return 'warning';
       default:
         return 'default';
     }
   };
-  
-  // Define columns for the table
-  const columns = [
-    { 
-      id: 'weaponName', 
-      label: 'Weapon', 
-      minWidth: 180,
-      sortable: true,
-    },
-    { 
-      id: 'soldierName', 
-      label: 'Assigned To', 
-      minWidth: 180,
-      sortable: true,
-    },
-    { 
-      id: 'assignDate', 
-      label: 'Assign Date', 
-      minWidth: 120,
-      sortable: true,
-      format: (value: string) => new Date(value).toLocaleDateString(),
-    },
-    { 
-      id: 'dueDate', 
-      label: 'Due Date', 
-      minWidth: 120,
-      sortable: true,
-      format: (value: string | undefined) => value ? new Date(value).toLocaleDateString() : '-',
-    },
-    { 
-      id: 'status', 
-      label: 'Status', 
-      minWidth: 120,
-      sortable: true,
-      format: (value: string) => (
-        <Chip 
-          label={value} 
-          color={getStatusColor(value) as 'success' | 'info' | 'error' | 'warning' | 'default'} 
-          size="small" 
-        />
-      ),
-    },
-  ];
-  
-  // Handle page change
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
-  
-  // Handle rows per page change
-  const handleRowsPerPageChange = (newRowsPerPage: number) => {
-    setRowsPerPage(newRowsPerPage);
-    setPage(0);
-  };
-  
-  // Handle sort
-  const handleSort = (newSortConfig: SortConfig) => {
-    setSortConfig(newSortConfig);
-    
-    // Sort data based on key and direction
-    const sortedData = [...assignments].sort((a, b) => {
-      const aValue = a[newSortConfig.key as keyof WeaponAssignment];
-      const bValue = b[newSortConfig.key as keyof WeaponAssignment];
-      
-      if (!aValue && !bValue) return 0;
-      if (!aValue) return 1;
-      if (!bValue) return -1;
-      
-      if (aValue < bValue) {
-        return newSortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return newSortConfig.direction === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
-    
-    setAssignments(sortedData);
-  };
-  
-  // Handle search
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    setPage(0);
-    
-    if (!query) {
-      setAssignments(mockAssignments);
-      return;
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'N/A';
+    try {
+      return format(new Date(dateString), 'MMM dd, yyyy');
+    } catch (error) {
+      return dateString;
     }
-    
-    const filteredData = mockAssignments.filter((assignment) => {
-      const lowerQuery = query.toLowerCase();
-      return (
-        (assignment.weaponName?.toLowerCase().includes(lowerQuery) || false) ||
-        (assignment.soldierName?.toLowerCase().includes(lowerQuery) || false) ||
-        assignment.status.toLowerCase().includes(lowerQuery) ||
-        (assignment.notes?.toLowerCase().includes(lowerQuery) || false)
-      );
-    });
-    
-    setAssignments(filteredData);
   };
-  
-  // Handle view details
-  const handleView = (id: number) => {
-    navigate(`/weapon-assignments/${id}`);
-  };
-  
-  // Handle edit
-  const handleEdit = (id: number) => {
-    navigate(`/weapon-assignments/edit/${id}`);
-  };
-  
-  // Handle delete
-  const handleDelete = (id: number) => {
-    // In a real app, you'd call an API here
-    const updatedAssignments = assignments.filter(
-      (assignment) => assignment.id !== id
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <CircularProgress />
+      </Box>
     );
-    setAssignments(updatedAssignments);
-  };
-  
-  // Handle add new
-  const handleAddNew = () => {
-    navigate('/weapon-assignments/new');
-  };
-  
+  }
+
   return (
     <Box>
-      <PageHeader 
-        title="Weapon Assignments" 
-        icon={<AssignmentIcon fontSize="large" />}
-        onAdd={handleAddNew}
-        buttonText="Add Assignment"
+      <PageHeader
+        title="Weapon Assignments"
+        subtitle="View and manage all weapon assignments"
+        action={
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => navigate('/weapon-assignments/new')}
+          >
+            New Assignment
+          </Button>
+        }
       />
-      
-      <Box sx={{ mb: 3 }}>
-        <SearchBar 
-          onSearch={handleSearch}
-          placeholder="Search assignments..."
-          initialValue={searchQuery}
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+
+      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+        <Box sx={{ mb: 3 }}>
+          <TextField
+            label="Search Assignments"
+            variant="outlined"
+            fullWidth
+            size="small"
+            value={searchTerm}
+            onChange={handleSearchChange}
+            placeholder="Search by soldier, weapon, unit or status"
+          />
+        </Box>
+
+        <TableContainer>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>ID</TableCell>
+                <TableCell>Weapon</TableCell>
+                <TableCell>Assigned To</TableCell>
+                <TableCell>Unit</TableCell>
+                <TableCell>Assignment Date</TableCell>
+                <TableCell>Return Date</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredAssignments.length > 0 ? (
+                filteredAssignments
+                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                  .map((assignment) => (
+                    <TableRow key={assignment.Assignment_ID}>
+                      <TableCell>{assignment.Assignment_ID}</TableCell>
+                      <TableCell>{assignment.Weapon_Serial || `Weapon ID: ${assignment.Weapon_ID}`}</TableCell>
+                      <TableCell>
+                        {assignment.First_Name && assignment.Last_Name 
+                          ? `${assignment.First_Name} ${assignment.Last_Name}`
+                          : `Soldier ID: ${assignment.Soldier_ID}`}
+                      </TableCell>
+                      <TableCell>{assignment.Unit_Name || `Unit ID: ${assignment.Unit_ID}`}</TableCell>
+                      <TableCell>{formatDate(assignment.Assignment_Date)}</TableCell>
+                      <TableCell>{assignment.Return_Date ? formatDate(assignment.Return_Date) : 'Not Returned'}</TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={assignment.Status} 
+                          color={getStatusColor(assignment.Status) as any}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                          <IconButton 
+                            color="primary" 
+                            onClick={() => navigate(`/weapon-assignments/${assignment.Assignment_ID}`)}
+                          >
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            color="primary"
+                            onClick={() => navigate(`/weapon-assignments/${assignment.Assignment_ID}/edit`)}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                          <IconButton 
+                            color="error"
+                            onClick={() => assignment.Assignment_ID && handleDelete(assignment.Assignment_ID)}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={8} align="center">
+                    <Typography variant="body1" sx={{ py: 2 }}>
+                      No weapon assignments found
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+
+        <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
+          component="div"
+          count={filteredAssignments.length}
+          rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
         />
-      </Box>
-      
-      <DataTable 
-        columns={columns}
-        data={assignments}
-        page={page}
-        rowsPerPage={rowsPerPage}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
-        onSort={handleSort}
-        sortConfig={sortConfig}
-        onView={handleView}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
+      </Paper>
+
+      <ConfirmDialog
+        open={openDialog}
+        title="Delete Weapon Assignment"
+        content="Are you sure you want to delete this weapon assignment? This action cannot be undone."
+        onConfirm={confirmDelete}
+        onCancel={() => setOpenDialog(false)}
       />
     </Box>
   );

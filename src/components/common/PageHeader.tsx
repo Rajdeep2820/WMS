@@ -1,55 +1,59 @@
 import React from 'react';
-import { Box, Button, Paper, Typography, useTheme, alpha } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import { Box, Typography, Button } from '@mui/material';
 
 interface PageHeaderProps {
   title: string;
-  onAdd?: () => void;
-  buttonText?: string;
-  showButton?: boolean;
+  subtitle?: string;
   icon?: React.ReactNode;
+  showButton?: boolean;
+  buttonText?: string;
+  buttonIcon?: React.ReactNode;
+  onButtonClick?: () => void;
+  onAdd?: () => void;
+  action?: React.ReactNode;
 }
 
-const PageHeader: React.FC<PageHeaderProps> = ({
+export const PageHeader: React.FC<PageHeaderProps> = ({
   title,
-  onAdd,
-  buttonText = 'Add New',
-  showButton = true,
+  subtitle,
   icon,
+  showButton = false,
+  buttonText,
+  buttonIcon,
+  onButtonClick,
+  onAdd,
+  action,
 }) => {
-  const theme = useTheme();
-
   return (
-    <Paper
+    <Box
       sx={{
-        p: 2,
-        mb: 3,
         display: 'flex',
-        alignItems: 'center',
         justifyContent: 'space-between',
-        backgroundColor: alpha(theme.palette.primary.light, 0.05),
-        boxShadow: 'none',
-        borderRadius: theme.shape.borderRadius,
+        alignItems: 'center',
+        mb: 3,
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center' }}>
-        {icon && <Box sx={{ mr: 1, color: theme.palette.primary.main }}>{icon}</Box>}
-        <Typography variant="h5" component="h1" color="primary.main" fontWeight="500">
+      <Box>
+        <Typography variant="h4" component="h1">
           {title}
         </Typography>
+        {subtitle && (
+          <Typography variant="subtitle1" color="text.secondary">
+            {subtitle}
+          </Typography>
+        )}
       </Box>
-      {showButton && onAdd && (
+      {action ? (
+        action
+      ) : showButton && (
         <Button
           variant="contained"
-          color="primary"
-          startIcon={<AddIcon />}
-          onClick={onAdd}
+          startIcon={buttonIcon}
+          onClick={onButtonClick || onAdd}
         >
           {buttonText}
         </Button>
       )}
-    </Paper>
+    </Box>
   );
-};
-
-export default PageHeader; 
+}; 

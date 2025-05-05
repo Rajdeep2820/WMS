@@ -1,13 +1,5 @@
-import React, { useState } from 'react';
-import { 
-  Paper, 
-  InputBase, 
-  IconButton, 
-  Box, 
-  useTheme, 
-  alpha,
-  Divider
-} from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import { Paper, InputBase, IconButton } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 
@@ -15,70 +7,68 @@ interface SearchBarProps {
   onSearch: (query: string) => void;
   placeholder?: string;
   initialValue?: string;
+  debounceTime?: number;
 }
 
-const SearchBar: React.FC<SearchBarProps> = ({ 
-  onSearch, 
-  placeholder = 'Search...', 
-  initialValue = ''
+const SearchBar: React.FC<SearchBarProps> = ({
+  onSearch,
+  placeholder = 'Search...',
+  initialValue = '',
+  debounceTime = 500,
 }) => {
-  const [query, setQuery] = useState(initialValue);
-  const theme = useTheme();
+  const [searchValue, setSearchValue] = useState(initialValue);
+  const [debouncedValue, setDebouncedValue] = useState(initialValue);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setQuery(value);
-  };
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedValue(searchValue);
+    }, debounceTime);
 
-  const handleSearchSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSearch(query);
-  };
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [searchValue, debounceTime]);
+
+  useEffect(() => {
+    onSearch(debouncedValue);
+  }, [debouncedValue, onSearch]);
 
   const handleClear = () => {
-    setQuery('');
-    onSearch('');
+    setSearchValue('');
   };
 
   return (
     <Paper
-      component="form"
-      onSubmit={handleSearchSubmit}
+      elevation={1}
       sx={{
         p: '2px 4px',
         display: 'flex',
         alignItems: 'center',
         width: '100%',
-        maxWidth: 500,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-        borderRadius: theme.shape.borderRadius,
-        border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
+        mb: 3,
       }}
     >
-      <IconButton type="submit" sx={{ p: '10px' }} aria-label="search">
-        <SearchIcon color="primary" />
+      <IconButton sx={{ p: '10px' }} aria-label="search">
+        <SearchIcon />
       </IconButton>
       <InputBase
         sx={{ ml: 1, flex: 1 }}
         placeholder={placeholder}
-        inputProps={{ 'aria-label': placeholder }}
-        value={query}
-        onChange={handleSearchChange}
+        value={searchValue}
+        onChange={(e) => setSearchValue(e.target.value)}
+        inputProps={{ 'aria-label': 'search' }}
       />
-      {query && (
-        <>
-          <Divider sx={{ height: 28, m: 0.5 }} orientation="vertical" />
-          <IconButton 
-            sx={{ p: '10px' }} 
-            aria-label="clear search" 
-            onClick={handleClear}
-          >
-            <ClearIcon />
-          </IconButton>
-        </>
+      {searchValue && (
+        <IconButton 
+          sx={{ p: '10px' }} 
+          aria-label="clear" 
+          onClick={handleClear}
+        >
+          <ClearIcon />
+        </IconButton>
       )}
     </Paper>
   );
 };
 
-export default SearchBar; 
+export { SearchBar }; 

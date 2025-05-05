@@ -1,23 +1,19 @@
 import React from 'react';
-import { styled } from '@mui/material/styles';
-import {
-  Box,
-  Drawer,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Typography,
-  Divider,
-  useTheme,
+import { 
+  Box, 
+  Drawer, 
+  List, 
+  ListItem, 
+  ListItemButton, 
+  ListItemIcon, 
+  ListItemText, 
+  Divider, 
+  Typography 
 } from '@mui/material';
-import { Link, useLocation } from 'react-router-dom';
-
-// Icons
+import { useLocation, useNavigate } from 'react-router-dom';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import FactoryIcon from '@mui/icons-material/Factory';
-import GroupsIcon from '@mui/icons-material/Groups';
+import MilitaryTechIcon from '@mui/icons-material/MilitaryTech';
 import GavelIcon from '@mui/icons-material/Gavel';
 import PersonIcon from '@mui/icons-material/Person';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -27,116 +23,107 @@ import InventoryIcon from '@mui/icons-material/Inventory';
 
 const drawerWidth = 280;
 
-const StyledDrawer = styled(Drawer)(({ theme }) => ({
-  width: drawerWidth,
-  flexShrink: 0,
-  '& .MuiDrawer-paper': {
-    width: drawerWidth,
-    boxSizing: 'border-box',
-    backgroundColor: theme.palette.primary.main,
-    color: theme.palette.primary.contrastText,
+const navigationItems = [
+  { 
+    title: 'Dashboard', 
+    path: '/', 
+    icon: <DashboardIcon /> 
   },
-}));
-
-const LogoContainer = styled(Box)(({ theme }) => ({
-  display: 'flex',
-  alignItems: 'center',
-  padding: theme.spacing(2),
-  height: 64,
-}));
-
-const StyledListItem = styled(ListItem)<{ active?: number }>(({ theme, active }) => ({
-  padding: 0,
-  marginBottom: theme.spacing(0.5),
-  '& .MuiListItemButton-root': {
-    borderRadius: theme.shape.borderRadius,
-    marginLeft: theme.spacing(1),
-    marginRight: theme.spacing(1),
-    backgroundColor: active ? theme.palette.primary.dark : 'transparent',
-    '&:hover': {
-      backgroundColor: active 
-        ? theme.palette.primary.dark 
-        : theme.palette.primary.light,
-    },
+  { 
+    title: 'Manufacturers', 
+    path: '/manufacturers', 
+    icon: <FactoryIcon /> 
   },
-  '& .MuiListItemIcon-root': {
-    color: theme.palette.primary.contrastText,
-    minWidth: 40,
+  { 
+    title: 'Military Units', 
+    path: '/military-units', 
+    icon: <MilitaryTechIcon /> 
   },
-}));
-
-interface SidebarProps {
-  open: boolean;
-  onClose: () => void;
-}
-
-interface NavigationItem {
-  title: string;
-  path: string;
-  icon: React.ReactNode;
-}
-
-const navigationItems: NavigationItem[] = [
-  { title: 'Dashboard', path: '/', icon: <DashboardIcon /> },
-  { title: 'Manufacturers', path: '/manufacturers', icon: <FactoryIcon /> },
-  { title: 'Military Units', path: '/military-units', icon: <GroupsIcon /> },
-  { title: 'Weapons', path: '/weapons', icon: <GavelIcon /> },
-  { title: 'Soldiers', path: '/soldiers', icon: <PersonIcon /> },
-  { title: 'Weapon Assignments', path: '/weapon-assignments', icon: <AssignmentIcon /> },
-  { title: 'Storage Facilities', path: '/storage-facilities', icon: <HomeWorkIcon /> },
-  { title: 'Maintenance', path: '/maintenance', icon: <BuildIcon /> },
-  { title: 'Ammunition', path: '/ammunition', icon: <InventoryIcon /> },
+  { 
+    title: 'Weapons', 
+    path: '/weapons', 
+    icon: <GavelIcon /> 
+  },
+  { 
+    title: 'Personnel', 
+    path: '/soldiers', 
+    icon: <PersonIcon /> 
+  },
+  { 
+    title: 'Weapon Assignments', 
+    path: '/weapon-assignments', 
+    icon: <AssignmentIcon /> 
+  },
+  { 
+    title: 'Storage Facilities', 
+    path: '/storage-facilities', 
+    icon: <HomeWorkIcon /> 
+  },
+  { 
+    title: 'Maintenance', 
+    path: '/weapon-maintenance', 
+    icon: <BuildIcon /> 
+  },
+  { 
+    title: 'Ammunition', 
+    path: '/ammunition', 
+    icon: <InventoryIcon /> 
+  },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
+const Sidebar: React.FC = () => {
   const location = useLocation();
-  const theme = useTheme();
-
-  const content = (
-    <>
-      <LogoContainer>
-        <Typography variant="h5" fontWeight="bold">
-          WMS
-        </Typography>
-        <Typography variant="subtitle1" sx={{ ml: 1 }}>
-          Weaponry System
-        </Typography>
-      </LogoContainer>
-      
-      <Divider sx={{ backgroundColor: theme.palette.primary.light }} />
-      
-      <List sx={{ mt: 2 }}>
-        {navigationItems.map((item) => (
-          <StyledListItem 
-            key={item.path} 
-            active={location.pathname === item.path ? 1 : 0}
-            disablePadding
-          >
-            <ListItemButton 
-              component={Link} 
-              to={item.path}
-              onClick={onClose}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.title} />
-            </ListItemButton>
-          </StyledListItem>
-        ))}
-      </List>
-    </>
-  );
+  const navigate = useNavigate();
 
   return (
-    <StyledDrawer
-      variant="temporary"
-      open={open}
-      onClose={onClose}
-      ModalProps={{
-        keepMounted: true, // Better open performance on mobile
+    <Drawer
+      variant="permanent"
+      sx={{
+        width: drawerWidth,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': {
+          width: drawerWidth,
+          boxSizing: 'border-box',
+          backgroundColor: (theme) => theme.palette.background.default,
+          borderRight: (theme) => `1px solid ${theme.palette.divider}`,
+        },
       }}
     >
-      {content}
-    </StyledDrawer>
+      <Box sx={{ p: 2, display: 'flex', alignItems: 'center', height: 64 }}>
+        <Typography variant="h6" component="div" fontWeight="bold">
+          Weaponry Management
+        </Typography>
+      </Box>
+      <Divider />
+      <List sx={{ flex: 1, p: 1 }}>
+        {navigationItems.map((item) => (
+          <ListItem key={item.path} disablePadding sx={{ mb: 0.5 }}>
+            <ListItemButton
+              onClick={() => navigate(item.path)}
+              selected={location.pathname === item.path}
+              sx={{
+                borderRadius: 1,
+                '&.Mui-selected': {
+                  backgroundColor: (theme) => theme.palette.action.selected,
+                  '&:hover': {
+                    backgroundColor: (theme) => theme.palette.action.hover,
+                  },
+                },
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+              <ListItemText primary={item.title} />
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
+      <Divider />
+      <Box sx={{ p: 2, textAlign: 'center' }}>
+        <Typography variant="body2" color="text.secondary">
+          © {new Date().getFullYear()} Weaponry Management
+        </Typography>
+      </Box>
+    </Drawer>
   );
 };
 

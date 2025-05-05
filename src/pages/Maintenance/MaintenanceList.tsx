@@ -1,288 +1,168 @@
-import React, { useState } from 'react';
-import { Box, Button, useTheme, Chip } from '@mui/material';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Box, IconButton, Tooltip } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import BuildIcon from '@mui/icons-material/Build';
-import { DataTable, PageHeader, SearchBar } from '../../components/common';
-import { Maintenance, SortConfig } from '../../types';
-
-// Mock data for maintenance records
-const mockMaintenance: Maintenance[] = [
-  {
-    id: 1,
-    weaponId: 1,
-    weaponName: 'M4A1 Carbine',
-    type: 'Regular',
-    startDate: '2023-01-15',
-    endDate: '2023-01-18',
-    technician: 'Robert Johnson',
-    status: 'Completed',
-    cost: 350,
-    notes: 'Routine maintenance and cleaning',
-  },
-  {
-    id: 2,
-    weaponId: 2,
-    weaponName: 'M9 Beretta',
-    type: 'Repair',
-    startDate: '2023-02-10',
-    endDate: '2023-02-15',
-    technician: 'Maria Garcia',
-    status: 'Completed',
-    cost: 520,
-    notes: 'Trigger mechanism replacement',
-  },
-  {
-    id: 3,
-    weaponId: 3,
-    weaponName: 'M249 SAW',
-    type: 'Upgrade',
-    startDate: '2023-03-20',
-    technician: 'David Lee',
-    status: 'In Progress',
-    notes: 'Installing improved cooling system',
-  },
-  {
-    id: 4,
-    weaponId: 4,
-    weaponName: 'M16A4',
-    type: 'Inspection',
-    startDate: '2023-04-05',
-    endDate: '2023-04-05',
-    technician: 'Samuel Brown',
-    status: 'Completed',
-    cost: 150,
-    notes: 'Annual inspection and certification',
-  },
-  {
-    id: 5,
-    weaponId: 5,
-    weaponName: 'Barrett M82',
-    type: 'Repair',
-    startDate: '2023-05-12',
-    technician: 'Lisa Wilson',
-    status: 'Scheduled',
-    notes: 'Scope calibration and barrel examination',
-  },
-];
+import { PageHeader, DataTable } from '../../components/common';
+import { weaponMaintenanceApi } from '../../services/api';
+import { WeaponMaintenance } from '../../types';
 
 const MaintenanceList: React.FC = () => {
-  const [maintenanceRecords, setMaintenanceRecords] = useState<Maintenance[]>(mockMaintenance);
+  const navigate = useNavigate();
+  const [maintenance, setMaintenance] = useState<WeaponMaintenance[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'startDate', direction: 'desc' });
-  
-  const theme = useTheme();
-  const navigate = useNavigate();
-  
-  // Get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Completed':
-        return 'success';
-      case 'In Progress':
-        return 'primary';
-      case 'Scheduled':
-        return 'info';
-      case 'Cancelled':
-        return 'error';
-      default:
-        return 'default';
+
+  useEffect(() => {
+    fetchMaintenance();
+  }, []);
+
+  const fetchMaintenance = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('Fetching maintenance records...');
+      
+      const data = await weaponMaintenanceApi.getAll();
+      console.log('Maintenance data:', data);
+      
+      setMaintenance(data);
+    } catch (err) {
+      console.error('Error fetching maintenance records:', err);
+      setError('Failed to fetch maintenance data');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Get type color
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case 'Regular':
-        return 'info';
-      case 'Repair':
-        return 'warning';
-      case 'Upgrade':
-        return 'success';
-      case 'Inspection':
-        return 'secondary';
-      default:
-        return 'default';
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this maintenance record?')) {
+      try {
+        await weaponMaintenanceApi.delete(id);
+        fetchMaintenance();
+      } catch (err) {
+        console.error('Error deleting maintenance record:', err);
+        setError('Failed to delete maintenance record');
+      }
     }
   };
+
+  const getStatusColor = (status: string) => {
+    switch(status) {
+      case 'Scheduled': return 'info';
+      case 'In Progress': return 'warning';
+      case 'Completed': return 'success';
+      case 'Cancelled': return 'error';
+      default: return 'default';
+    }
+  };
+
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
+  };
   
-  // Define columns for the table
+  const formatCurrency = (amount?: number) => {
+    if (amount === undefined || amount === null) return 'N/A';
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD'
+    }).format(amount);
+  };
+
   const columns = [
-    { 
-      id: 'weaponName', 
-      label: 'Weapon', 
-      minWidth: 170,
-      sortable: true,
-    },
-    { 
-      id: 'type', 
-      label: 'Type', 
-      minWidth: 120,
-      sortable: true,
+    { id: 'Maintenance_ID', label: 'ID', minWidth: 50 },
+    { id: 'Weapon_Name', label: 'Weapon', minWidth: 150 },
+    { id: 'Weapon_Serial', label: 'Serial #', minWidth: 120 },
+    { id: 'Type', label: 'Maintenance Type', minWidth: 120 },
+    { id: 'Start_Date', label: 'Start Date', minWidth: 120, 
+      format: (value: string) => formatDate(value) },
+    { id: 'End_Date', label: 'End Date', minWidth: 120,
+      format: (value: string) => formatDate(value) },
+    { id: 'Technician', label: 'Technician', minWidth: 150 },
+    { id: 'Cost', label: 'Cost', minWidth: 100,
+      format: (value: number) => formatCurrency(value) },
+    { id: 'Status', label: 'Status', minWidth: 100,
       format: (value: string) => (
-        <Chip 
-          label={value} 
-          color={getTypeColor(value) as 'info' | 'warning' | 'success' | 'secondary' | 'default'} 
-          size="small" 
-        />
-      ),
+        <Box
+          component="span"
+          sx={{
+            px: 1,
+            py: 0.5,
+            borderRadius: 1,
+            color: 'white',
+            bgcolor: 
+              value === 'Scheduled' ? 'info.main' :
+              value === 'In Progress' ? 'warning.main' :
+              value === 'Completed' ? 'success.main' :
+              'error.main'
+          }}
+        >
+          {value}
+        </Box>
+      )
     },
-    { 
-      id: 'startDate', 
-      label: 'Start Date', 
-      minWidth: 120,
-      sortable: true,
-      format: (value: string) => new Date(value).toLocaleDateString(),
-    },
-    { 
-      id: 'endDate', 
-      label: 'End Date', 
-      minWidth: 120,
-      sortable: true,
-      format: (value: string | undefined) => value ? new Date(value).toLocaleDateString() : '-',
-    },
-    { 
-      id: 'technician', 
-      label: 'Technician', 
-      minWidth: 150,
-      sortable: true,
-    },
-    { 
-      id: 'status', 
-      label: 'Status', 
-      minWidth: 120,
-      sortable: true,
-      format: (value: string) => (
-        <Chip 
-          label={value} 
-          color={getStatusColor(value) as 'success' | 'primary' | 'info' | 'error' | 'default'} 
-          size="small" 
-        />
-      ),
-    },
-    { 
-      id: 'cost', 
-      label: 'Cost ($)', 
+    {
+      id: 'actions',
+      label: 'Actions',
       minWidth: 100,
-      sortable: true,
-      format: (value: number | undefined) => value ? `$${value.toLocaleString()}` : '-',
+      align: 'center' as const,
+      format: (value: any, row: WeaponMaintenance) => (
+        <Box>
+          <Tooltip title="View">
+            <IconButton
+              size="small"
+              onClick={() => navigate(`/weapon-maintenance/${row.Maintenance_ID}`)}
+            >
+              <VisibilityIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Edit">
+            <IconButton
+              size="small"
+              onClick={() => navigate(`/weapon-maintenance/${row.Maintenance_ID}/edit`)}
+            >
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              onClick={() => handleDelete(row.Maintenance_ID || 0)}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
     },
   ];
-  
-  // Handle page change
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
-  
-  // Handle rows per page change
-  const handleRowsPerPageChange = (newRowsPerPage: number) => {
-    setRowsPerPage(newRowsPerPage);
-    setPage(0);
-  };
-  
-  // Handle sort
-  const handleSort = (newSortConfig: SortConfig) => {
-    setSortConfig(newSortConfig);
-    
-    // Sort data based on key and direction
-    const sortedData = [...maintenanceRecords].sort((a, b) => {
-      const aValue = a[newSortConfig.key as keyof Maintenance];
-      const bValue = b[newSortConfig.key as keyof Maintenance];
-      
-      if (!aValue && !bValue) return 0;
-      if (!aValue) return 1;
-      if (!bValue) return -1;
-      
-      if (aValue < bValue) {
-        return newSortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return newSortConfig.direction === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
-    
-    setMaintenanceRecords(sortedData);
-  };
-  
-  // Handle search
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    setPage(0);
-    
-    if (!query) {
-      setMaintenanceRecords(mockMaintenance);
-      return;
-    }
-    
-    const filteredData = mockMaintenance.filter((record) => {
-      const lowerQuery = query.toLowerCase();
-      return (
-        (record.weaponName?.toLowerCase().includes(lowerQuery) || false) ||
-        record.type.toLowerCase().includes(lowerQuery) ||
-        record.technician.toLowerCase().includes(lowerQuery) ||
-        record.status.toLowerCase().includes(lowerQuery) ||
-        (record.notes?.toLowerCase().includes(lowerQuery) || false)
-      );
-    });
-    
-    setMaintenanceRecords(filteredData);
-  };
-  
-  // Handle view details
-  const handleView = (id: number) => {
-    navigate(`/maintenance/${id}`);
-  };
-  
-  // Handle edit
-  const handleEdit = (id: number) => {
-    navigate(`/maintenance/edit/${id}`);
-  };
-  
-  // Handle delete
-  const handleDelete = (id: number) => {
-    // In a real app, you'd call an API here
-    const updatedRecords = maintenanceRecords.filter(
-      (record) => record.id !== id
-    );
-    setMaintenanceRecords(updatedRecords);
-  };
-  
-  // Handle add new
-  const handleAddNew = () => {
-    navigate('/maintenance/new');
-  };
-  
+
+  if (error) return <div>{error}</div>;
+
   return (
     <Box>
-      <PageHeader 
-        title="Maintenance Records" 
-        icon={<BuildIcon fontSize="large" />}
-        onAdd={handleAddNew}
-        buttonText="Add Maintenance"
+      <PageHeader
+        title="Weapon Maintenance"
+        icon={<BuildIcon />}
+        showButton
+        buttonText="Add New Maintenance Record"
+        buttonIcon={<AddIcon />}
+        onButtonClick={() => navigate('/weapon-maintenance/new')}
       />
-      
-      <Box sx={{ mb: 3 }}>
-        <SearchBar 
-          onSearch={handleSearch}
-          placeholder="Search maintenance records..."
-          initialValue={searchQuery}
-        />
-      </Box>
-      
-      <DataTable 
+      <DataTable
         columns={columns}
-        data={maintenanceRecords}
+        data={maintenance}
+        loading={loading}
         page={page}
         rowsPerPage={rowsPerPage}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
-        onSort={handleSort}
-        sortConfig={sortConfig}
-        onView={handleView}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
+        onPageChange={setPage}
+        onRowsPerPageChange={setRowsPerPage}
       />
     </Box>
   );

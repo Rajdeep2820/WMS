@@ -1,161 +1,174 @@
-import React, { useState } from 'react';
-import { Box, Button, useTheme, Chip } from '@mui/material';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import HomeWorkIcon from '@mui/icons-material/HomeWork';
-import { DataTable, PageHeader, SearchBar } from '../../components/common';
-import { StorageFacility, SortConfig } from '../../types';
-
-// Mock data for storage facilities
-const mockFacilities: StorageFacility[] = [
-  {
-    id: 1,
-    name: 'Alpha Armory',
-    location: 'Building 12, Zone A, Base North',
-    capacity: 500,
-    securityLevel: 'High',
-    manager: 'Richard Wilson',
-    contact: '+1-555-123-4567',
-    status: 'Operational',
-  },
-  {
-    id: 2,
-    name: 'Bravo Bunker',
-    location: 'Underground Level 2, Zone C, Base South',
-    capacity: 1200,
-    securityLevel: 'Maximum',
-    manager: 'Jessica Martinez',
-    contact: '+1-555-987-6543',
-    status: 'Operational',
-  },
-  {
-    id: 3,
-    name: 'Charlie Container',
-    location: 'Field Camp, Zone E, Eastern Perimeter',
-    capacity: 300,
-    securityLevel: 'Medium',
-    manager: 'Robert Johnson',
-    contact: '+1-555-456-7890',
-    status: 'Under Maintenance',
-  },
-  {
-    id: 4,
-    name: 'Delta Depot',
-    location: 'Building A5, Zone B, Base West',
-    capacity: 700,
-    securityLevel: 'High',
-    manager: 'Sarah Thompson',
-    contact: '+1-555-234-5678',
-    status: 'Full',
-  },
-  {
-    id: 5,
-    name: 'Echo Enclosure',
-    location: 'Old Base Sector, Zone Z, South Wing',
-    capacity: 250,
-    securityLevel: 'Low',
-    manager: 'David Lee',
-    contact: '+1-555-876-5432',
-    status: 'Decommissioned',
-  },
-];
+import {
+  Box,
+  Chip,
+  Alert,
+  AlertTitle,
+  Button,
+} from '@mui/material';
+import WarehouseIcon from '@mui/icons-material/Warehouse';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import {
+  DataTable,
+  PageHeader,
+  SearchBar,
+} from '../../components/common';
+import { SortConfig } from '../../types';
+import { StorageFacility } from '../../types/storageFacility';
+import { storageFacilityApi } from '../../services/api';
 
 const StorageFacilityList: React.FC = () => {
-  const [facilities, setFacilities] = useState<StorageFacility[]>(mockFacilities);
+  const [facilities, setFacilities] = useState<StorageFacility[]>([]);
+  const [filteredFacilities, setFilteredFacilities] = useState<StorageFacility[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
-  
-  const theme = useTheme();
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: 'Name',
+    direction: 'asc',
+  });
+
   const navigate = useNavigate();
-  
-  // Get status color
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Operational':
-        return 'success';
-      case 'Under Maintenance':
-        return 'warning';
-      case 'Full':
-        return 'info';
-      case 'Decommissioned':
-        return 'error';
-      default:
-        return 'default';
+
+  // Fetch storage facilities data
+  const fetchFacilities = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await storageFacilityApi.getAll();
+      console.log('Fetched storage facilities:', data);
+      setFacilities(data);
+      setFilteredFacilities(data);
+    } catch (err: any) {
+      console.error('Error fetching storage facilities:', err);
+      setError(err.message || 'Failed to fetch storage facilities');
+    } finally {
+      setLoading(false);
     }
   };
-  
-  // Define columns for the table
+
+  useEffect(() => {
+    fetchFacilities();
+  }, []);
+
+  // Define columns for the data table
   const columns = [
-    { 
-      id: 'name', 
-      label: 'Facility Name', 
+    {
+      id: 'Name',
+      label: 'Name',
       minWidth: 180,
       sortable: true,
     },
-    { 
-      id: 'location', 
-      label: 'Location', 
-      minWidth: 220,
+    {
+      id: 'Location',
+      label: 'Location',
+      minWidth: 160,
       sortable: true,
+      format: (value: string) => value || 'N/A',
     },
-    { 
-      id: 'capacity', 
-      label: 'Capacity', 
-      minWidth: 100,
-      sortable: true,
-    },
-    { 
-      id: 'securityLevel', 
-      label: 'Security Level', 
+    {
+      id: 'Capacity',
+      label: 'Capacity',
       minWidth: 120,
+      align: 'right' as 'right',
       sortable: true,
+      format: (value: number) => value || 'N/A',
     },
-    { 
-      id: 'manager', 
-      label: 'Manager', 
-      minWidth: 150,
+    {
+      id: 'Status',
+      label: 'Status',
+      minWidth: 140,
       sortable: true,
+      format: (value: string) => {
+        if (!value) return 'N/A';
+        
+        const colorMap: Record<string, "success" | "error" | "warning" | "default"> = {
+          'Operational': 'success',
+          'Full': 'warning',
+          'Under Maintenance': 'warning',
+          'Decommissioned': 'error'
+        };
+        
+        return (
+          <Chip
+            size="small"
+            label={value}
+            color={colorMap[value] || 'default'}
+            variant="outlined"
+          />
+        );
+      },
     },
-    { 
-      id: 'status', 
-      label: 'Status', 
-      minWidth: 120,
+    {
+      id: 'Security_Level',
+      label: 'Security Level',
+      minWidth: 140,
       sortable: true,
-      format: (value: string) => (
-        <Chip 
-          label={value} 
-          color={getStatusColor(value) as 'success' | 'warning' | 'info' | 'error' | 'default'} 
-          size="small" 
-        />
-      ),
+      format: (value: string) => {
+        if (!value) return 'N/A';
+        
+        const colorMap: Record<string, "success" | "error" | "warning" | "info" | "default"> = {
+          'Low': 'default',
+          'Medium': 'info',
+          'High': 'warning',
+          'Maximum': 'error'
+        };
+        
+        return (
+          <Chip
+            size="small"
+            label={value}
+            color={colorMap[value] || 'default'}
+          />
+        );
+      },
     },
   ];
-  
-  // Handle page change
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
-  
-  // Handle rows per page change
-  const handleRowsPerPageChange = (newRowsPerPage: number) => {
-    setRowsPerPage(newRowsPerPage);
+
+  // Handle search
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
     setPage(0);
+
+    if (!query) {
+      setFilteredFacilities(facilities);
+      return;
+    }
+
+    const lowerQuery = query.toLowerCase();
+    const filtered = facilities.filter((facility) => {
+      return (
+        facility.Name.toLowerCase().includes(lowerQuery) ||
+        (facility.Location && facility.Location.toLowerCase().includes(lowerQuery)) ||
+        (facility.Status && facility.Status.toLowerCase().includes(lowerQuery)) ||
+        (facility.Security_Level && facility.Security_Level.toLowerCase().includes(lowerQuery))
+      );
+    });
+
+    setFilteredFacilities(filtered);
   };
-  
+
   // Handle sort
   const handleSort = (newSortConfig: SortConfig) => {
     setSortConfig(newSortConfig);
-    
-    // Sort data based on key and direction
-    const sortedData = [...facilities].sort((a, b) => {
+
+    const sortedData = [...filteredFacilities].sort((a, b) => {
       const aValue = a[newSortConfig.key as keyof StorageFacility];
       const bValue = b[newSortConfig.key as keyof StorageFacility];
-      
+
       if (!aValue && !bValue) return 0;
       if (!aValue) return 1;
       if (!bValue) return -1;
-      
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return newSortConfig.direction === 'asc'
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+
       if (aValue < bValue) {
         return newSortConfig.direction === 'asc' ? -1 : 1;
       }
@@ -164,87 +177,95 @@ const StorageFacilityList: React.FC = () => {
       }
       return 0;
     });
-    
-    setFacilities(sortedData);
+
+    setFilteredFacilities(sortedData);
   };
-  
-  // Handle search
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    setPage(0);
-    
-    if (!query) {
-      setFacilities(mockFacilities);
-      return;
-    }
-    
-    const filteredData = mockFacilities.filter((facility) => {
-      const lowerQuery = query.toLowerCase();
-      return (
-        facility.name.toLowerCase().includes(lowerQuery) ||
-        facility.location.toLowerCase().includes(lowerQuery) ||
-        facility.securityLevel.toLowerCase().includes(lowerQuery) ||
-        facility.manager.toLowerCase().includes(lowerQuery) ||
-        facility.status.toLowerCase().includes(lowerQuery)
-      );
-    });
-    
-    setFacilities(filteredData);
-  };
-  
-  // Handle view details
+
+  // Navigate to storage facility details page
   const handleView = (id: number) => {
     navigate(`/storage-facilities/${id}`);
   };
-  
-  // Handle edit
+
+  // Navigate to storage facility edit page
   const handleEdit = (id: number) => {
     navigate(`/storage-facilities/edit/${id}`);
   };
-  
-  // Handle delete
-  const handleDelete = (id: number) => {
-    // In a real app, you'd call an API here
-    const updatedFacilities = facilities.filter(
-      (facility) => facility.id !== id
-    );
-    setFacilities(updatedFacilities);
+
+  // Delete a storage facility
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this storage facility?')) {
+      try {
+        await storageFacilityApi.delete(id);
+        setFacilities((prev) => 
+          prev.filter((facility) => facility.Facility_ID !== id)
+        );
+        setFilteredFacilities((prev) =>
+          prev.filter((facility) => facility.Facility_ID !== id)
+        );
+      } catch (err: any) {
+        console.error('Error deleting storage facility:', err);
+        setError(err.message || 'Failed to delete storage facility');
+      }
+    }
   };
-  
-  // Handle add new
+
+  // Navigate to add new storage facility page
   const handleAddNew = () => {
     navigate('/storage-facilities/new');
   };
-  
+
   return (
     <Box>
-      <PageHeader 
-        title="Storage Facilities" 
-        icon={<HomeWorkIcon fontSize="large" />}
+      <PageHeader
+        title="Storage Facilities"
+        icon={<WarehouseIcon fontSize="large" />}
         onAdd={handleAddNew}
-        buttonText="Add Facility"
+        buttonText="Add Storage Facility"
+        showButton={true}
       />
-      
+
+      {error && (
+        <Alert 
+          severity="error" 
+          sx={{ mb: 3 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={fetchFacilities}
+              startIcon={<RefreshIcon />}
+            >
+              Retry
+            </Button>
+          }
+        >
+          <AlertTitle>Error</AlertTitle>
+          {error}
+        </Alert>
+      )}
+
       <Box sx={{ mb: 3 }}>
-        <SearchBar 
+        <SearchBar
           onSearch={handleSearch}
           placeholder="Search facilities..."
           initialValue={searchQuery}
         />
       </Box>
-      
-      <DataTable 
+
+      <DataTable
         columns={columns}
-        data={facilities}
+        data={filteredFacilities}
         page={page}
         rowsPerPage={rowsPerPage}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
+        onPageChange={setPage}
+        onRowsPerPageChange={setRowsPerPage}
         onSort={handleSort}
         sortConfig={sortConfig}
         onView={handleView}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        getRowId={(row) => row.Facility_ID || 0}
+        loading={loading}
       />
     </Box>
   );

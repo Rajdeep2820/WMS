@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
@@ -6,436 +6,465 @@ import {
   Typography,
   TextField,
   Button,
+  CircularProgress,
   MenuItem,
+  InputAdornment,
   Divider,
-  useTheme,
-  Alert,
-  FormControlLabel,
-  Checkbox,
+  SelectChangeEvent,
+  Select,
+  FormControl,
+  InputLabel,
+  Alert
 } from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import BuildIcon from '@mui/icons-material/Build';
-import SaveIcon from '@mui/icons-material/Save';
-import CancelIcon from '@mui/icons-material/Cancel';
 import { PageHeader } from '../../components/common';
-import { Maintenance } from '../../types';
+import { weaponMaintenanceApi, weaponApi } from '../../services/api';
+import { WeaponMaintenance, Weapon } from '../../types';
 
-// Mock maintenance data
-const mockMaintenance: Maintenance[] = [
-  {
-    id: 1,
-    weaponId: 1,
-    weaponName: 'M4A1 Carbine',
-    type: 'Regular',
-    startDate: '2023-01-15',
-    endDate: '2023-01-18',
-    technician: 'Robert Johnson',
-    status: 'Completed',
-    cost: 350,
-    notes: 'Routine maintenance and cleaning',
-  },
-  {
-    id: 2,
-    weaponId: 2,
-    weaponName: 'M9 Beretta',
-    type: 'Repair',
-    startDate: '2023-02-10',
-    endDate: '2023-02-15',
-    technician: 'Maria Garcia',
-    status: 'Completed',
-    cost: 520,
-    notes: 'Trigger mechanism replacement',
-  },
-];
-
-// Mock weapons data for dropdown
-const mockWeapons = [
-  { id: 1, name: 'M4A1 Carbine' },
-  { id: 2, name: 'M9 Beretta' },
-  { id: 3, name: 'M249 SAW' },
-  { id: 4, name: 'M16A4' },
-  { id: 5, name: 'Barrett M82' },
-  { id: 6, name: 'M24 Sniper Rifle' },
-  { id: 7, name: 'M240B Machine Gun' },
-];
-
-// Mock technicians
-const mockTechnicians = [
-  'Robert Johnson',
-  'Maria Garcia',
-  'David Lee',
-  'Samuel Brown',
-  'Lisa Wilson',
-  'Michael Taylor',
-  'Jessica Martinez',
-];
-
-const emptyMaintenance: Omit<Maintenance, 'id'> = {
-  weaponId: 0,
-  type: 'Regular',
-  startDate: new Date().toISOString().split('T')[0],
-  technician: '',
-  status: 'Scheduled',
-  notes: '',
-};
+interface FormErrors {
+  [key: string]: string;
+}
 
 const MaintenanceForm: React.FC = () => {
-  const { id } = useParams();
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isEditMode = id !== 'new';
+  const { id } = useParams<{ id: string }>();
+  const isEditMode = Boolean(id);
   
-  const [maintenance, setMaintenance] = useState<Omit<Maintenance, 'id'>>(emptyMaintenance);
-  const [isComplete, setIsComplete] = useState(false);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [maintenance, setMaintenance] = useState<Partial<WeaponMaintenance>>({
+    Weapon_ID: 0,
+    Type: 'Regular',
+    Start_Date: new Date().toISOString().split('T')[0],
+    Status: 'Scheduled',
+    Notes: ''
+  });
   
-  const maintenanceTypes: Array<Maintenance['type']> = [
-    'Regular',
-    'Repair',
-    'Upgrade',
-    'Inspection',
-  ];
-  
-  const statusOptions: Array<Maintenance['status']> = [
-    'Scheduled',
-    'In Progress',
-    'Completed',
-    'Cancelled',
-  ];
-  
-  useEffect(() => {
-    if (isEditMode && id) {
-      // In a real app, this would be an API call
-      const foundMaintenance = mockMaintenance.find(
-        (m) => m.id === parseInt(id, 10)
-      );
+  const [weapons, setWeapons] = useState<Weapon[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const fetchWeapons = useCallback(async () => {
+    try {
+      setLoading(true);
+      setApiError(null);
+      console.log('Fetching weapons from API endpoint: /api/weapons');
+      const data = await weaponApi.getAll();
+      console.log('Weapons loaded:', data);
       
-      if (foundMaintenance) {
-        const { id, weaponName, ...rest } = foundMaintenance;
-        setMaintenance(rest);
-        
-        // Set the isComplete checkbox if endDate exists
-        if (rest.endDate) {
-          setIsComplete(true);
-        }
+      if (Array.isArray(data)) {
+        console.log(`Successfully loaded ${data.length} weapons`);
+        setWeapons(data);
       } else {
-        // Maintenance record not found
-        navigate('/maintenance');
+        console.error('Invalid weapons data format:', data);
+        setApiError('Received invalid weapons data format from server');
+        setWeapons([]);
+      }
+    } catch (err) {
+      console.error('Error fetching weapons:', err);
+      setApiError(`Failed to load weapons. Please try again. Details: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      setWeapons([]); // Set empty array to prevent undefined errors
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const fetchMaintenance = useCallback(async () => {
+    if (!id) return;
+    
+    try {
+      setLoading(true);
+      const data = await weaponMaintenanceApi.getById(parseInt(id, 10));
+      console.log('Maintenance data loaded:', data);
+      setMaintenance(data);
+    } catch (err) {
+      console.error('Error fetching maintenance details:', err);
+      setApiError('Failed to load maintenance record');
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchWeapons();
+    if (isEditMode) {
+      fetchMaintenance();
+    }
+  }, [isEditMode, fetchWeapons, fetchMaintenance]);
+  
+  // Add debug information for weapons loading
+  useEffect(() => {
+    console.log('Weapons state updated. Count:', weapons.length);
+    if (weapons.length > 0) {
+      console.log('First weapon example:', weapons[0]);
+    } else {
+      console.log('No weapons loaded yet');
+    }
+  }, [weapons]);
+  
+  // Fix any undefined Weapon_ID issues when weapons are loaded
+  useEffect(() => {
+    if (!isEditMode && weapons.length > 0 && (!maintenance.Weapon_ID || maintenance.Weapon_ID === 0)) {
+      // Find the first weapon with a valid ID
+      const validWeapon = weapons.find(w => w.Weapon_ID !== undefined);
+      if (validWeapon && validWeapon.Weapon_ID) {
+        console.log('Setting default weapon ID to:', validWeapon.Weapon_ID);
+        setMaintenance(prev => ({
+          ...prev,
+          Weapon_ID: validWeapon.Weapon_ID
+        }));
       }
     }
-    setIsInitialized(true);
-  }, [id, isEditMode, navigate]);
-  
+  }, [weapons, isEditMode, maintenance.Weapon_ID]);
+
   const validateForm = (): boolean => {
-    const newErrors: { [key: string]: string } = {};
+    let formErrors: FormErrors = {};
     
-    if (!maintenance.weaponId) {
-      newErrors.weaponId = 'Weapon is required';
+    if (!maintenance.Weapon_ID) {
+      formErrors.Weapon_ID = 'Weapon is required';
     }
     
-    if (!maintenance.type) {
-      newErrors.type = 'Maintenance type is required';
+    if (!maintenance.Type) {
+      formErrors.Type = 'Maintenance type is required';
     }
     
-    if (!maintenance.startDate) {
-      newErrors.startDate = 'Start date is required';
-    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(maintenance.startDate)) {
-      newErrors.startDate = 'Use format YYYY-MM-DD';
+    if (!maintenance.Start_Date) {
+      formErrors.Start_Date = 'Start date is required';
     }
     
-    if (maintenance.endDate && !/^\d{4}-\d{2}-\d{2}$/.test(maintenance.endDate)) {
-      newErrors.endDate = 'Use format YYYY-MM-DD';
+    if (!maintenance.Status) {
+      formErrors.Status = 'Status is required';
     }
     
-    if (!maintenance.technician) {
-      newErrors.technician = 'Technician is required';
+    // If end date is provided, it should be after start date
+    if (maintenance.End_Date && maintenance.Start_Date && 
+        new Date(maintenance.End_Date) < new Date(maintenance.Start_Date)) {
+      formErrors.End_Date = 'End date must be after start date';
     }
     
-    if (maintenance.cost !== undefined && maintenance.cost < 0) {
-      newErrors.cost = 'Cost cannot be negative';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(formErrors);
+    return Object.keys(formErrors).length === 0;
   };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    
-    setMaintenance((prev) => ({
-      ...prev,
-      [name]: name === 'weaponId' || name === 'cost' 
-        ? (value === '' ? undefined : Number(value)) 
-        : value,
-    }));
-    
-    // Clear error when user starts typing again
-    if (errors[name]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: '',
-      }));
-    }
-  };
-  
-  const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { checked } = e.target;
-    setIsComplete(checked);
-    
-    if (checked) {
-      // If checked, set end date to today
-      setMaintenance((prev) => ({
-        ...prev,
-        endDate: new Date().toISOString().split('T')[0],
-        status: 'Completed',
-      }));
-    } else {
-      // If unchecked, clear end date
-      setMaintenance((prev) => {
-        const updated = { ...prev };
-        delete updated.endDate;
-        
-        if (updated.status === 'Completed') {
-          updated.status = 'In Progress';
-        }
-        
-        return updated;
-      });
-    }
-  };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
-      setSubmitError('Please fill in all required fields correctly.');
       return;
     }
     
-    setIsSubmitting(true);
-    setSubmitError(null);
-    
     try {
-      // Simulate API call with a longer delay to show loading state
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      setLoading(true);
+      setApiError(null);
       
-      // In a real app, you would make an API call here
-      // isEditMode ? updateMaintenance(id, maintenance) : createMaintenance(maintenance);
+      // Create a copy of maintenance data for submission
+      const submissionData = { ...maintenance };
       
-      // Only navigate after successful submission
-      navigate('/maintenance');
-    } catch (error) {
-      setSubmitError('An error occurred while saving. Please try again.');
+      // Format dates properly for MySQL - convert to 'YYYY-MM-DD' format
+      if (submissionData.Start_Date) {
+        const startDate = new Date(submissionData.Start_Date);
+        if (!isNaN(startDate.getTime())) {
+          submissionData.Start_Date = startDate.toISOString().split('T')[0];
+        }
+      }
+      
+      if (submissionData.End_Date) {
+        const endDate = new Date(submissionData.End_Date);
+        if (!isNaN(endDate.getTime())) {
+          submissionData.End_Date = endDate.toISOString().split('T')[0];
+        }
+      }
+      
+      console.log('Submitting maintenance data:', submissionData);
+      
+      if (isEditMode && id) {
+        await weaponMaintenanceApi.update(parseInt(id, 10), submissionData as WeaponMaintenance);
+      } else {
+        await weaponMaintenanceApi.create(submissionData as WeaponMaintenance);
+      }
+      
+      navigate('/weapon-maintenance');
+    } catch (err) {
+      console.error('Error saving maintenance record:', err);
+      setApiError('Failed to save maintenance record. Please try again.');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
-  
-  const handleCancel = () => {
-    navigate('/maintenance');
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    
+    // Convert numeric fields
+    if (name === 'Cost' || name === 'Weapon_ID') {
+      const numValue = value === '' ? undefined : parseFloat(value);
+      setMaintenance(prev => ({
+        ...prev,
+        [name]: numValue
+      }));
+    } else {
+      setMaintenance(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+    
+    // Clear error when field is edited
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
-  if (!isInitialized) {
-    return null; // Don't render anything until initialization is complete
+  const handleSelectChange = (e: SelectChangeEvent) => {
+    const { name, value } = e.target;
+    
+    console.log(`SelectChange for ${name}: ${value}`);
+    
+    // Convert numeric fields
+    if (name === 'Cost' || name === 'Weapon_ID') {
+      // Handle empty string case
+      if (value === '') {
+        setMaintenance(prev => ({
+          ...prev,
+          [name]: undefined
+        }));
+      } else {
+        // Convert to number
+        const numValue = parseFloat(value);
+        if (!isNaN(numValue)) {
+          console.log(`${name} converted to number: ${numValue}`);
+          setMaintenance(prev => ({
+            ...prev,
+            [name]: numValue
+          }));
+        } else {
+          console.warn(`Failed to convert ${value} to a number`);
+        }
+      }
+    } else {
+      setMaintenance(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+    
+    // Clear error when field is edited
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const maintenanceTypes = ['Regular', 'Repair', 'Upgrade', 'Inspection'];
+  const statusOptions = ['Scheduled', 'In Progress', 'Completed', 'Cancelled'];
+
+  // Only show loading indicator when first loading weapons
+  if (loading && !weapons.length) {
+    return (
+      <Box>
+        <PageHeader
+          title={isEditMode ? 'Edit Maintenance Record' : 'Add New Maintenance Record'}
+          icon={<BuildIcon />}
+          showButton={false}
+        />
+        <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+          <CircularProgress />
+          <Typography variant="body1" sx={{ ml: 2 }}>Loading weapons...</Typography>
+        </Box>
+      </Box>
+    );
   }
-  
+
   return (
-    <Box sx={{ position: 'relative', zIndex: 2 }}>
+    <Box>
       <PageHeader
-        title={isEditMode ? 'Edit Maintenance Record' : 'Add Maintenance Record'}
-        icon={<BuildIcon fontSize="large" />}
+        title={isEditMode ? 'Edit Maintenance Record' : 'Add New Maintenance Record'}
+        icon={<BuildIcon />}
         showButton={false}
       />
       
-      <Paper
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{
-          p: 3,
-          mb: 3,
-          borderRadius: theme.shape.borderRadius,
-          position: 'relative',
-          zIndex: 2,
-        }}
-      >
-        {submitError && (
+      <Paper sx={{ p: 3, mb: 3 }}>
+        {apiError && (
           <Alert severity="error" sx={{ mb: 3 }}>
-            {submitError}
+            <Typography variant="subtitle1" fontWeight="bold">Error</Typography>
+            <Typography variant="body2">{apiError}</Typography>
+            {weapons.length === 0 && (
+              <Box mt={2}>
+                <Button 
+                  variant="outlined" 
+                  color="error" 
+                  size="small" 
+                  onClick={fetchWeapons}
+                >
+                  Retry Loading Weapons
+                </Button>
+              </Box>
+            )}
           </Alert>
         )}
         
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Weapon"
-              name="weaponId"
-              value={maintenance.weaponId || ''}
-              onChange={handleInputChange}
-              error={!!errors.weaponId}
-              helperText={errors.weaponId}
-              required
-            >
-              {mockWeapons.map((weapon) => (
-                <MenuItem key={weapon.id} value={weapon.id}>
-                  {weapon.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Maintenance Type"
-              name="type"
-              value={maintenance.type}
-              onChange={handleInputChange}
-              error={!!errors.type}
-              helperText={errors.type}
-              required
-            >
-              {maintenanceTypes.map((type) => (
-                <MenuItem key={type} value={type}>
-                  {type}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Start Date (YYYY-MM-DD)"
-              name="startDate"
-              value={maintenance.startDate}
-              onChange={handleInputChange}
-              error={!!errors.startDate}
-              helperText={errors.startDate}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Technician"
-              name="technician"
-              value={maintenance.technician}
-              onChange={handleInputChange}
-              error={!!errors.technician}
-              helperText={errors.technician}
-              required
-            >
-              {mockTechnicians.map((tech) => (
-                <MenuItem key={tech} value={tech}>
-                  {tech}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Status"
-              name="status"
-              value={maintenance.status}
-              onChange={handleInputChange}
-              error={!!errors.status}
-              helperText={errors.status}
-              required
-            >
-              {statusOptions.map((status) => (
-                <MenuItem key={status} value={status}>
-                  {status}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Cost ($)"
-              name="cost"
-              type="number"
-              value={maintenance.cost ?? ''}
-              onChange={handleInputChange}
-              error={!!errors.cost}
-              helperText={errors.cost}
-              inputProps={{ min: 0, step: 0.01 }}
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 100%', minWidth: '300px' }}>
+        <form onSubmit={handleSubmit}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box>
+              <Typography variant="h6" sx={{ mb: 2 }}>Maintenance Information</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                <FormControl fullWidth error={!!errors.Weapon_ID}>
+                  <InputLabel id="weapon-label">Weapon</InputLabel>
+                  <Select
+                    labelId="weapon-label"
+                    id="Weapon_ID"
+                    name="Weapon_ID"
+                    value={maintenance.Weapon_ID ? maintenance.Weapon_ID.toString() : ''}
+                    onChange={handleSelectChange}
+                    label="Weapon"
+                  >
+                    <MenuItem value="">Select a weapon</MenuItem>
+                    {weapons.length > 0 ? (
+                      weapons
+                        .filter(weapon => weapon.Weapon_ID !== undefined)
+                        .map((weapon) => (
+                          <MenuItem key={weapon.Weapon_ID} value={weapon.Weapon_ID!.toString()}>
+                            {weapon.Name} {weapon.Serial_Number ? `- ${weapon.Serial_Number}` : ''}
+                          </MenuItem>
+                        ))
+                    ) : (
+                      <MenuItem disabled value="">
+                        No weapons available
+                      </MenuItem>
+                    )}
+                  </Select>
+                  {errors.Weapon_ID && (
+                    <Typography variant="caption" color="error">
+                      {errors.Weapon_ID}
+                    </Typography>
+                  )}
+                </FormControl>
+                
+                <FormControl fullWidth>
+                  <InputLabel id="maintenance-type-label">Maintenance Type</InputLabel>
+                  <Select
+                    labelId="maintenance-type-label"
+                    id="Type"
+                    name="Type"
+                    value={maintenance.Type || ''}
+                    onChange={handleSelectChange}
+                    error={!!errors.Type}
+                    label="Maintenance Type"
+                  >
+                    {maintenanceTypes.map((type) => (
+                      <MenuItem key={type} value={type}>
+                        {type}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            </Box>
+            
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="Start Date"
+                name="Start_Date"
+                type="date"
+                value={maintenance.Start_Date || ''}
+                onChange={handleInputChange}
+                error={!!errors.Start_Date}
+                helperText={errors.Start_Date || 'Required'}
+                required
+                InputLabelProps={{ shrink: true }}
+                sx={{ flex: '1 1 calc(50% - 8px)', minWidth: '250px' }}
+              />
+              
+              <TextField
+                fullWidth
+                label="End Date"
+                name="End_Date"
+                type="date"
+                value={maintenance.End_Date || ''}
+                onChange={handleInputChange}
+                error={!!errors.End_Date}
+                helperText={errors.End_Date}
+                InputLabelProps={{ shrink: true }}
+                sx={{ flex: '1 1 calc(50% - 8px)', minWidth: '250px' }}
+              />
+            </Box>
+            
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <TextField
+                fullWidth
+                label="Technician"
+                name="Technician"
+                type="text"
+                value={maintenance.Technician || ''}
+                onChange={handleInputChange}
+                sx={{ flex: '1 1 calc(50% - 8px)', minWidth: '250px' }}
+              />
+              
+              <TextField
+                fullWidth
+                label="Cost"
+                name="Cost"
+                type="number"
+                InputProps={{
+                  startAdornment: <InputAdornment position="start">$</InputAdornment>,
+                }}
+                value={maintenance.Cost || ''}
+                onChange={handleInputChange}
+                sx={{ flex: '1 1 calc(50% - 8px)', minWidth: '250px' }}
+              />
+            </Box>
+            
+            <FormControl fullWidth>
+              <InputLabel id="status-label">Status</InputLabel>
+              <Select
+                labelId="status-label"
+                id="Status"
+                name="Status"
+                value={maintenance.Status || ''}
+                onChange={handleSelectChange}
+                error={!!errors.Status}
+                label="Status"
+              >
+                {statusOptions.map((status) => (
+                  <MenuItem key={status} value={status}>
+                    {status}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            
             <TextField
               fullWidth
               label="Notes"
-              name="notes"
-              value={maintenance.notes || ''}
-              onChange={handleInputChange}
+              name="Notes"
               multiline
               rows={4}
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 100%' }}>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={isComplete}
-                  onChange={handleCheckboxChange}
-                  name="isComplete"
-                  color="primary"
-                />
-              }
-              label="Maintenance is complete"
+              value={maintenance.Notes || ''}
+              onChange={handleInputChange}
             />
             
-            {isComplete && (
-              <TextField
-                sx={{ mt: 2 }}
-                fullWidth
-                label="End Date (YYYY-MM-DD)"
-                name="endDate"
-                value={maintenance.endDate || ''}
-                onChange={handleInputChange}
-                error={!!errors.endDate}
-                helperText={errors.endDate}
-              />
-            )}
+            <Divider />
+            
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Button
+                variant="outlined"
+                startIcon={<ArrowBackIcon />}
+                onClick={() => navigate('/weapon-maintenance')}
+              >
+                Cancel
+              </Button>
+              
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={24} /> : (isEditMode ? 'Update' : 'Save')}
+              </Button>
+            </Box>
           </Box>
-        </Box>
-        
-        <Divider sx={{ my: 3 }} />
-        
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={handleCancel}
-            startIcon={<CancelIcon />}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            startIcon={<SaveIcon />}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Saving...' : 'Save'}
-          </Button>
-        </Box>
+        </form>
       </Paper>
     </Box>
   );

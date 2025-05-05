@@ -1,119 +1,102 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Box,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  TablePagination,
   Paper,
+  TablePagination,
   IconButton,
-  Chip,
-  Tooltip,
+  Box,
   TableSortLabel,
+  Typography,
+  Tooltip,
+  CircularProgress,
 } from '@mui/material';
-import { alpha, styled } from '@mui/material/styles';
+import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import { SortConfig, SortOrder } from '../../types';
+import { SortConfig } from '../../types';
 
-interface Column {
+export interface Column {
   id: string;
   label: string;
   minWidth?: number;
   align?: 'right' | 'left' | 'center';
-  format?: (value: any) => React.ReactNode;
+  format?: (value: any, row?: any) => React.ReactNode;
   sortable?: boolean;
 }
 
 interface DataTableProps {
   columns: Column[];
   data: any[];
-  totalCount?: number;
-  page: number;
-  rowsPerPage: number;
-  onPageChange: (newPage: number) => void;
-  onRowsPerPageChange: (rowsPerPage: number) => void;
-  onSort?: (sortConfig: SortConfig) => void;
+  loading?: boolean;
+  page?: number;
+  rowsPerPage?: number;
   sortConfig?: SortConfig;
+  onPageChange?: (newPage: number) => void;
+  onRowsPerPageChange?: (newRowsPerPage: number) => void;
+  onSort?: (newSortConfig: SortConfig) => void;
+  onView?: (id: number) => void;
   onEdit?: (id: number) => void;
   onDelete?: (id: number) => void;
-  onView?: (id: number) => void;
-  disableActions?: boolean;
+  getRowId?: (row: any) => number;
 }
-
-const StyledTableRow = styled(TableRow)(({ theme }) => ({
-  '&:nth-of-type(odd)': {
-    backgroundColor: alpha(theme.palette.primary.light, 0.05),
-  },
-  '&:hover': {
-    backgroundColor: alpha(theme.palette.primary.light, 0.1),
-  },
-  // hide last border
-  '&:last-child td, &:last-child th': {
-    border: 0,
-  },
-}));
-
-const ActionButton = styled(IconButton)(({ theme }) => ({
-  padding: theme.spacing(0.5),
-}));
 
 const DataTable: React.FC<DataTableProps> = ({
   columns,
   data,
-  totalCount,
-  page,
-  rowsPerPage,
+  loading = false,
+  page = 0,
+  rowsPerPage = 10,
+  sortConfig,
   onPageChange,
   onRowsPerPageChange,
   onSort,
-  sortConfig,
+  onView,
   onEdit,
   onDelete,
-  onView,
-  disableActions = false,
+  getRowId = (row) => row.id || row.Manufacturer_ID || row.Unit_ID || row.Weapon_ID || row.Soldier_ID || row.Assignment_ID || row.Facility_ID || row.Maintenance_ID || row.Ammunition_ID,
 }) => {
-  const handlePageChange = (
-    event: React.MouseEvent<HTMLButtonElement> | null,
-    newPage: number,
-  ) => {
-    onPageChange(newPage);
+  const handleChangePage = (event: unknown, newPage: number) => {
+    onPageChange?.(newPage);
   };
 
-  const handleRowsPerPageChange = (
-    event: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    onRowsPerPageChange(parseInt(event.target.value, 10));
-    onPageChange(0);
+  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+    onRowsPerPageChange?.(parseInt(event.target.value, 10));
   };
 
   const createSortHandler = (columnId: string) => () => {
-    if (!onSort) return;
-
-    const isAsc = sortConfig?.key === columnId && sortConfig.direction === 'asc';
-    const newDirection: SortOrder = isAsc ? 'desc' : 'asc';
-    
-    onSort({
-      key: columnId,
-      direction: newDirection,
-    });
+    if (onSort && sortConfig) {
+      const isAsc = sortConfig.key === columnId && sortConfig.direction === 'asc';
+      onSort({
+        key: columnId,
+        direction: isAsc ? 'desc' : 'asc',
+      });
+    }
   };
 
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" p={3}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
-    <Paper sx={{ width: '100%', overflow: 'hidden', borderRadius: 2 }}>
-      <TableContainer sx={{ maxHeight: 'calc(100vh - 300px)' }}>
-        <Table stickyHeader aria-label="sticky table">
+    <Paper elevation={2}>
+      <TableContainer>
+        <Table stickyHeader>
           <TableHead>
             <TableRow>
               {columns.map((column) => (
                 <TableCell
                   key={column.id}
                   align={column.align || 'left'}
-                  style={{ minWidth: column.minWidth, fontWeight: 600 }}
+                  style={{ minWidth: column.minWidth, fontWeight: 'bold' }}
                 >
                   {column.sortable && onSort ? (
                     <TableSortLabel
@@ -128,7 +111,7 @@ const DataTable: React.FC<DataTableProps> = ({
                   )}
                 </TableCell>
               ))}
-              {!disableActions && (onEdit || onDelete || onView) && (
+              {(onView || onEdit || onDelete) && (
                 <TableCell align="center" style={{ minWidth: 120 }}>
                   Actions
                 </TableCell>
@@ -136,70 +119,72 @@ const DataTable: React.FC<DataTableProps> = ({
             </TableRow>
           </TableHead>
           <TableBody>
-            {data.map((row) => (
-              <StyledTableRow hover tabIndex={-1} key={row.id}>
-                {columns.map((column) => {
-                  const value = row[column.id];
+            {data.length > 0 ? (
+              data
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((row) => {
                   return (
-                    <TableCell key={column.id} align={column.align}>
-                      {column.format ? column.format(value) : value}
-                    </TableCell>
+                    <TableRow hover tabIndex={-1} key={getRowId(row)}>
+                      {columns.map((column) => {
+                        const value = row[column.id];
+                        return (
+                          <TableCell key={column.id} align={column.align}>
+                            {column.format ? column.format(value, row) : value}
+                          </TableCell>
+                        );
+                      })}
+                      {(onView || onEdit || onDelete) && (
+                        <TableCell align="center">
+                          <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+                            {onView && (
+                              <Tooltip title="View">
+                                <IconButton
+                                  size="small"
+                                  color="primary"
+                                  onClick={() => onView(getRowId(row))}
+                                >
+                                  <VisibilityIcon />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {onEdit && (
+                              <Tooltip title="Edit">
+                                <IconButton
+                                  size="small"
+                                  color="secondary"
+                                  onClick={() => onEdit(getRowId(row))}
+                                >
+                                  <EditIcon />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                            {onDelete && (
+                              <Tooltip title="Delete">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  onClick={() => onDelete(getRowId(row))}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Box>
+                        </TableCell>
+                      )}
+                    </TableRow>
                   );
-                })}
-                {!disableActions && (onEdit || onDelete || onView) && (
-                  <TableCell align="center">
-                    <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                      {onView && (
-                        <Tooltip title="View details">
-                          <ActionButton
-                            aria-label="view"
-                            color="primary"
-                            onClick={() => onView(row.id)}
-                            size="small"
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </ActionButton>
-                        </Tooltip>
-                      )}
-                      {onEdit && (
-                        <Tooltip title="Edit">
-                          <ActionButton
-                            aria-label="edit"
-                            color="primary"
-                            onClick={() => onEdit(row.id)}
-                            size="small"
-                          >
-                            <EditIcon fontSize="small" />
-                          </ActionButton>
-                        </Tooltip>
-                      )}
-                      {onDelete && (
-                        <Tooltip title="Delete">
-                          <ActionButton
-                            aria-label="delete"
-                            color="error"
-                            onClick={() => onDelete(row.id)}
-                            size="small"
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </ActionButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </TableCell>
-                )}
-              </StyledTableRow>
-            ))}
-            {data.length === 0 && (
+                })
+            ) : (
               <TableRow>
                 <TableCell
-                  colSpan={
-                    columns.length + (disableActions ? 0 : (onEdit || onDelete || onView ? 1 : 0))
-                  }
+                  colSpan={columns.length + (onView || onEdit || onDelete ? 1 : 0)}
                   align="center"
                   sx={{ py: 3 }}
                 >
-                  No data available
+                  <Typography variant="body1" color="text.secondary">
+                    No data available
+                  </Typography>
                 </TableCell>
               </TableRow>
             )}
@@ -209,14 +194,14 @@ const DataTable: React.FC<DataTableProps> = ({
       <TablePagination
         rowsPerPageOptions={[5, 10, 25, 50]}
         component="div"
-        count={totalCount ?? data.length}
+        count={data.length}
         rowsPerPage={rowsPerPage}
         page={page}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
+        onPageChange={handleChangePage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
       />
     </Paper>
   );
 };
 
-export default DataTable; 
+export { DataTable }; 

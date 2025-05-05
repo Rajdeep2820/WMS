@@ -1,342 +1,399 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import React, { useState, useEffect, ChangeEvent } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
   Paper,
   Typography,
   TextField,
   Button,
+  Grid,
+  FormControl,
+  InputLabel,
+  Select,
   MenuItem,
-  Divider,
-  useTheme,
+  FormHelperText,
   Alert,
+  CircularProgress,
+  SelectChangeEvent
 } from '@mui/material';
-import AssignmentIcon from '@mui/icons-material/Assignment';
-import SaveIcon from '@mui/icons-material/Save';
-import CancelIcon from '@mui/icons-material/Cancel';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
+import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { format, parseISO } from 'date-fns';
+import { WeaponAssignment, Weapon, Soldier, MilitaryUnit } from '../../types';
+import { weaponAssignmentApi, weaponApi, soldierApi, militaryUnitApi } from '../../services/api';
 import { PageHeader } from '../../components/common';
-import { WeaponAssignment } from '../../types';
 
-// Mock weapon assignments
-const mockAssignments: WeaponAssignment[] = [
-  {
-    id: 1,
-    weaponId: 1,
-    weaponName: 'M4A1 Carbine',
-    soldierId: 1,
-    soldierName: 'John Smith',
-    assignDate: '2023-01-10',
-    dueDate: '2023-07-10',
-    status: 'Active',
-    notes: 'Standard issue for training exercise',
-  },
-  {
-    id: 2,
-    weaponId: 2,
-    weaponName: 'M9 Beretta',
-    soldierId: 2,
-    soldierName: 'Sarah Johnson',
-    assignDate: '2023-02-05',
-    dueDate: '2023-08-05',
-    status: 'Active',
-    notes: 'Secondary weapon for field operations',
-  },
-];
+interface FormData extends Omit<WeaponAssignment, 'Assignment_Date' | 'Return_Date'> {
+  Assignment_Date: Date | null;
+  Return_Date: Date | null;
+}
 
-// Mock weapons for dropdown (only available weapons)
-const mockWeapons = [
-  { id: 1, name: 'M4A1 Carbine' },
-  { id: 2, name: 'M9 Beretta' },
-  { id: 3, name: 'M249 SAW' },
-  { id: 4, name: 'M16A4' },
-  { id: 5, name: 'Barrett M82' },
-  { id: 6, name: 'M24 Sniper Rifle' },
-  { id: 7, name: 'M240B Machine Gun' },
-];
-
-// Mock soldiers for dropdown (only active soldiers)
-const mockSoldiers = [
-  { id: 1, name: 'John Smith', rank: 'Sergeant' },
-  { id: 2, name: 'Sarah Johnson', rank: 'Captain' },
-  { id: 3, name: 'Michael Williams', rank: 'Private' },
-  { id: 4, name: 'Emily Davis', rank: 'Lieutenant' },
-  { id: 5, name: 'David Martinez', rank: 'Major' },
-];
-
-const emptyAssignment: Omit<WeaponAssignment, 'id'> = {
-  weaponId: 0,
-  soldierId: 0,
-  assignDate: new Date().toISOString().split('T')[0],
-  status: 'Active',
-  notes: '',
+const initialFormData: FormData = {
+  Weapon_ID: 0,
+  Soldier_ID: 0,
+  Unit_ID: 0,
+  Assignment_Date: new Date(),
+  Return_Date: null,
+  Status: 'Active',
+  Notes: ''
 };
 
+interface FormErrors {
+  Weapon_ID?: string;
+  Soldier_ID?: string;
+  Unit_ID?: string;
+  Assignment_Date?: string;
+  Status?: string;
+}
+
 const WeaponAssignmentForm: React.FC = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isEditMode = id !== 'new';
+  const isEditMode = !!id;
   
-  const [assignment, setAssignment] = useState<Omit<WeaponAssignment, 'id'>>(emptyAssignment);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  
-  const statusOptions: Array<WeaponAssignment['status']> = [
-    'Active',
-    'Returned',
-    'Lost',
-    'Damaged',
-  ];
-  
+  const [formData, setFormData] = useState<FormData>(initialFormData);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [weapons, setWeapons] = useState<Weapon[]>([]);
+  const [soldiers, setSoldiers] = useState<Soldier[]>([]);
+  const [militaryUnits, setMilitaryUnits] = useState<MilitaryUnit[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [initialLoading, setInitialLoading] = useState<boolean>(isEditMode);
+
   useEffect(() => {
-    if (isEditMode && id) {
-      // In a real app, this would be an API call
-      const foundAssignment = mockAssignments.find(
-        (a) => a.id === parseInt(id, 10)
-      );
-      
-      if (foundAssignment) {
-        const { id, weaponName, soldierName, ...rest } = foundAssignment;
-        setAssignment(rest);
-      } else {
-        // Assignment not found
-        navigate('/weapon-assignments');
+    const fetchData = async () => {
+      try {
+        // Fetch reference data
+        const [weaponsData, soldiersData, unitsData] = await Promise.all([
+          weaponApi.getAll(),
+          soldierApi.getAll(),
+          militaryUnitApi.getAll()
+        ]);
+        
+        setWeapons(weaponsData);
+        setSoldiers(soldiersData);
+        setMilitaryUnits(unitsData);
+        
+        // If in edit mode, fetch the assignment
+        if (isEditMode && id) {
+          const assignment = await weaponAssignmentApi.getById(parseInt(id));
+          setFormData({
+            ...assignment,
+            Assignment_Date: assignment.Assignment_Date ? parseISO(assignment.Assignment_Date) : null,
+            Return_Date: assignment.Return_Date ? parseISO(assignment.Return_Date) : null
+          });
+        }
+      } catch (error) {
+        console.error('Error loading data:', error);
+        setSaveError('Failed to load required data');
+      } finally {
+        setInitialLoading(false);
       }
-    }
-    setIsInitialized(true);
-  }, [id, isEditMode, navigate]);
-  
+    };
+    
+    fetchData();
+  }, [id, isEditMode]);
+
   const validateForm = (): boolean => {
-    const newErrors: { [key: string]: string } = {};
+    const newErrors: FormErrors = {};
     
-    if (!assignment.weaponId) {
-      newErrors.weaponId = 'Weapon is required';
+    if (!formData.Weapon_ID) {
+      newErrors.Weapon_ID = 'Weapon is required';
     }
     
-    if (!assignment.soldierId) {
-      newErrors.soldierId = 'Soldier is required';
+    if (!formData.Soldier_ID) {
+      newErrors.Soldier_ID = 'Soldier is required';
     }
     
-    if (!assignment.assignDate) {
-      newErrors.assignDate = 'Assign date is required';
-    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(assignment.assignDate)) {
-      newErrors.assignDate = 'Use format YYYY-MM-DD';
+    if (!formData.Unit_ID) {
+      newErrors.Unit_ID = 'Military unit is required';
     }
     
-    if (assignment.dueDate && !/^\d{4}-\d{2}-\d{2}$/.test(assignment.dueDate)) {
-      newErrors.dueDate = 'Use format YYYY-MM-DD';
+    if (!formData.Assignment_Date) {
+      newErrors.Assignment_Date = 'Assignment date is required';
     }
     
-    if (!assignment.status) {
-      newErrors.status = 'Status is required';
+    if (!formData.Status) {
+      newErrors.Status = 'Status is required';
     }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    
-    setAssignment((prev) => ({
-      ...prev,
-      [name]: name === 'weaponId' || name === 'soldierId' 
-        ? parseInt(value, 10) || 0
-        : value,
-    }));
-    
-    // Clear error when user starts typing again
-    if (errors[name]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: '',
-      }));
-    }
-  };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
-      setSubmitError('Please fill in all required fields correctly.');
       return;
     }
     
-    setIsSubmitting(true);
-    setSubmitError(null);
+    setLoading(true);
+    setSaveError(null);
     
     try {
-      // Simulate API call with a longer delay to show loading state
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Format dates for API
+      const apiData: WeaponAssignment = {
+        ...formData,
+        // Ensure IDs are numbers
+        Weapon_ID: Number(formData.Weapon_ID),
+        Soldier_ID: Number(formData.Soldier_ID),
+        Unit_ID: Number(formData.Unit_ID),
+        Assignment_Date: formData.Assignment_Date ? format(formData.Assignment_Date, 'yyyy-MM-dd') : '',
+        Return_Date: formData.Return_Date ? format(formData.Return_Date, 'yyyy-MM-dd') : undefined
+      };
       
-      // In a real app, you would make an API call here
-      // isEditMode ? updateAssignment(id, assignment) : createAssignment(assignment);
+      if (isEditMode && id) {
+        await weaponAssignmentApi.update(parseInt(id), apiData);
+      } else {
+        await weaponAssignmentApi.create(apiData);
+      }
       
-      // Only navigate after successful submission
       navigate('/weapon-assignments');
     } catch (error) {
-      setSubmitError('An error occurred while saving. Please try again.');
+      console.error('Error saving weapon assignment:', error);
+      setSaveError('Failed to save weapon assignment. Please try again.');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
     }
   };
-  
-  const handleCancel = () => {
-    navigate('/weapon-assignments');
+
+  const handleSelectChange = (e: SelectChangeEvent) => {
+    const { name, value } = e.target;
+    
+    if (name) {
+      // Convert string values to numbers for ID fields
+      if (name === 'Weapon_ID' || name === 'Soldier_ID' || name === 'Unit_ID') {
+        setFormData(prev => ({
+          ...prev,
+          [name]: parseInt(value) || 0
+        }));
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          [name]: value
+        }));
+      }
+      
+      // Clear error for this field
+      if (errors[name as keyof FormErrors]) {
+        setErrors(prev => ({
+          ...prev,
+          [name]: undefined
+        }));
+      }
+    }
   };
 
-  if (!isInitialized) {
-    return null; // Don't render anything until initialization is complete
+  const handleTextChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    
+    if (name) {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      
+      // Clear error for this field
+      if (errors[name as keyof FormErrors]) {
+        setErrors(prev => ({
+          ...prev,
+          [name]: undefined
+        }));
+      }
+    }
+  };
+
+  const handleDateChange = (date: Date | null, fieldName: 'Assignment_Date' | 'Return_Date') => {
+    setFormData(prev => ({
+      ...prev,
+      [fieldName]: date
+    }));
+    
+    if (fieldName === 'Assignment_Date' && errors.Assignment_Date) {
+      setErrors(prev => ({
+        ...prev,
+        Assignment_Date: undefined
+      }));
+    }
+  };
+
+  if (initialLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
+        <CircularProgress />
+      </Box>
+    );
   }
-  
+
   return (
-    <Box sx={{ position: 'relative', zIndex: 2 }}>
+    <Box>
       <PageHeader
-        title={isEditMode ? 'Edit Weapon Assignment' : 'Add Weapon Assignment'}
-        icon={<AssignmentIcon fontSize="large" />}
-        showButton={false}
+        title={isEditMode ? 'Edit Weapon Assignment' : 'New Weapon Assignment'}
+        subtitle={isEditMode ? 'Update weapon assignment details' : 'Assign a weapon to a soldier'}
       />
       
-      <Paper
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{
-          p: 3,
-          mb: 3,
-          borderRadius: theme.shape.borderRadius,
-          position: 'relative',
-          zIndex: 2,
-        }}
-      >
-        {submitError && (
+      <Paper elevation={3} sx={{ p: 3, mb: 3 }}>
+        {saveError && (
           <Alert severity="error" sx={{ mb: 3 }}>
-            {submitError}
+            {saveError}
           </Alert>
         )}
         
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Weapon"
-              name="weaponId"
-              value={assignment.weaponId || ''}
-              onChange={handleInputChange}
-              error={!!errors.weaponId}
-              helperText={errors.weaponId}
-              required
-            >
-              {mockWeapons.map((weapon) => (
-                <MenuItem key={weapon.id} value={weapon.id}>
-                  {weapon.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Soldier"
-              name="soldierId"
-              value={assignment.soldierId || ''}
-              onChange={handleInputChange}
-              error={!!errors.soldierId}
-              helperText={errors.soldierId}
-              required
-            >
-              {mockSoldiers.map((soldier) => (
-                <MenuItem key={soldier.id} value={soldier.id}>
-                  {soldier.rank} {soldier.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Assign Date (YYYY-MM-DD)"
-              name="assignDate"
-              value={assignment.assignDate}
-              onChange={handleInputChange}
-              error={!!errors.assignDate}
-              helperText={errors.assignDate}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Due Date (YYYY-MM-DD)"
-              name="dueDate"
-              value={assignment.dueDate || ''}
-              onChange={handleInputChange}
-              error={!!errors.dueDate}
-              helperText={errors.dueDate}
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Status"
-              name="status"
-              value={assignment.status}
-              onChange={handleInputChange}
-              error={!!errors.status}
-              helperText={errors.status}
-              required
-            >
-              {statusOptions.map((status) => (
-                <MenuItem key={status} value={status}>
-                  {status}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 100%', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Notes"
-              name="notes"
-              value={assignment.notes || ''}
-              onChange={handleInputChange}
-              multiline
-              rows={4}
-            />
-          </Box>
-        </Box>
-        
-        <Divider sx={{ my: 3 }} />
-        
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={handleCancel}
-            startIcon={<CancelIcon />}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            startIcon={<SaveIcon />}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Saving...' : 'Save'}
-          </Button>
-        </Box>
+        <form onSubmit={handleSubmit}>
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth error={!!errors.Weapon_ID}>
+                <InputLabel id="weapon-label">Weapon</InputLabel>
+                <Select
+                  labelId="weapon-label"
+                  name="Weapon_ID"
+                  value={String(formData.Weapon_ID)}
+                  onChange={handleSelectChange}
+                  label="Weapon"
+                >
+                  <MenuItem value="0" disabled>
+                    <em>Select a weapon</em>
+                  </MenuItem>
+                  {weapons.map(weapon => (
+                    <MenuItem key={weapon.Weapon_ID} value={String(weapon.Weapon_ID)}>
+                      {weapon.Name} - {weapon.Serial_Number || 'No Serial'}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors.Weapon_ID && <FormHelperText>{errors.Weapon_ID}</FormHelperText>}
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth error={!!errors.Soldier_ID}>
+                <InputLabel id="soldier-label">Soldier</InputLabel>
+                <Select
+                  labelId="soldier-label"
+                  name="Soldier_ID"
+                  value={String(formData.Soldier_ID)}
+                  onChange={handleSelectChange}
+                  label="Soldier"
+                >
+                  <MenuItem value="0" disabled>
+                    <em>Select a soldier</em>
+                  </MenuItem>
+                  {soldiers.map(soldier => (
+                    <MenuItem key={soldier.Soldier_ID} value={String(soldier.Soldier_ID)}>
+                      {soldier.First_Name} {soldier.Last_Name} - {soldier.Rank}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors.Soldier_ID && <FormHelperText>{errors.Soldier_ID}</FormHelperText>}
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth error={!!errors.Unit_ID}>
+                <InputLabel id="unit-label">Military Unit</InputLabel>
+                <Select
+                  labelId="unit-label"
+                  name="Unit_ID"
+                  value={String(formData.Unit_ID)}
+                  onChange={handleSelectChange}
+                  label="Military Unit"
+                >
+                  <MenuItem value="0" disabled>
+                    <em>Select a military unit</em>
+                  </MenuItem>
+                  {militaryUnits.map(unit => (
+                    <MenuItem key={unit.Unit_ID} value={String(unit.Unit_ID)}>
+                      {unit.Name} - {unit.Branch}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {errors.Unit_ID && <FormHelperText>{errors.Unit_ID}</FormHelperText>}
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <FormControl fullWidth error={!!errors.Status}>
+                <InputLabel id="status-label">Status</InputLabel>
+                <Select
+                  labelId="status-label"
+                  name="Status"
+                  value={formData.Status}
+                  onChange={handleSelectChange}
+                  label="Status"
+                >
+                  <MenuItem value="Active">Active</MenuItem>
+                  <MenuItem value="Returned">Returned</MenuItem>
+                  <MenuItem value="Lost">Lost</MenuItem>
+                </Select>
+                {errors.Status && <FormHelperText>{errors.Status}</FormHelperText>}
+              </FormControl>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Assignment Date"
+                  value={formData.Assignment_Date}
+                  onChange={(newValue) => handleDateChange(newValue, 'Assignment_Date')}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      fullWidth
+                      error={!!errors.Assignment_Date}
+                      helperText={errors.Assignment_Date}
+                    />
+                  )}
+                />
+              </LocalizationProvider>
+            </Grid>
+            
+            <Grid item xs={12} md={6}>
+              <LocalizationProvider dateAdapter={AdapterDateFns}>
+                <DatePicker
+                  label="Return Date"
+                  value={formData.Return_Date}
+                  onChange={(newValue) => handleDateChange(newValue, 'Return_Date')}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      fullWidth
+                    />
+                  )}
+                />
+              </LocalizationProvider>
+            </Grid>
+            
+            <Grid item xs={12}>
+              <TextField
+                name="Notes"
+                label="Notes"
+                multiline
+                rows={4}
+                value={formData.Notes || ''}
+                onChange={handleTextChange}
+                fullWidth
+              />
+            </Grid>
+            
+            <Grid item xs={12} sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={() => navigate('/weapon-assignments')}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={loading}
+                startIcon={loading ? <CircularProgress size={20} /> : null}
+              >
+                {isEditMode ? 'Update' : 'Create'} Assignment
+              </Button>
+            </Grid>
+          </Grid>
+        </form>
       </Paper>
     </Box>
   );

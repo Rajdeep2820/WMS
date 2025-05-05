@@ -1,379 +1,392 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Box,
-  Paper,
-  TextField,
   Button,
+  Card,
+  CardContent,
+  CardHeader,
+  TextField,
   MenuItem,
-  Divider,
-  useTheme,
+  Stack,
   Alert,
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  Select,
+  SelectChangeEvent,
+  FormHelperText
 } from '@mui/material';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
+import GavelIcon from '@mui/icons-material/Gavel';
 import { PageHeader } from '../../components/common';
-import { Weapon } from '../../types';
+import { Weapon, Manufacturer } from '../../types';
+import { weaponApi, manufacturerApi } from '../../services/api';
 
-// Mock weapons data
-const mockWeapons: Weapon[] = [
-  {
-    id: 1,
-    name: 'M4A1 Carbine',
-    type: 'Assault Rifle',
-    caliber: '5.56×45mm NATO',
-    manufacturerId: 1,
-    manufacturerName: 'Defense Systems Inc.',
-    serialNumber: 'M4A1-2023-001',
-    manufactureDate: '2023-01-15',
-    status: 'Available',
-    description: 'Standard issue assault rifle',
-  },
-  {
-    id: 2,
-    name: 'M9 Beretta',
-    type: 'Pistol',
-    caliber: '9×19mm Parabellum',
-    manufacturerId: 2,
-    manufacturerName: 'Europa Arms',
-    serialNumber: 'M9-2023-001',
-    manufactureDate: '2023-02-20',
-    status: 'Available',
-    description: 'Standard issue sidearm',
-  },
-];
+// Define the weapon status options to match the database ENUM
+const statusOptions = ['Active', 'Inactive', 'Under Maintenance'];
 
-// Mock manufacturers for dropdown
-const mockManufacturers = [
-  { id: 1, name: 'Defense Systems Inc.' },
-  { id: 2, name: 'Europa Arms' },
-  { id: 3, name: 'Sakura Defense' },
-  { id: 4, name: 'Royal Armaments' },
-];
+interface WeaponFormData {
+  Name: string;
+  Type: string;
+  Model: string;
+  Serial_Number: string;
+  Manufacturer_ID: number | '';
+  Status: string;
+  Caliber?: string;
+  Assigned_Unit_ID?: number | null;
+  Last_Inspection_Date?: string | null;
+  Facility_ID?: number | null;
+  Acquisition_Date?: string | null;
+}
 
-// Weapon types
-const weaponTypes = [
-  'Assault Rifle',
-  'Pistol',
-  'Shotgun',
-  'Sniper Rifle',
-  'Machine Gun',
-  'Submachine Gun',
-  'Rifle',
-  'Carbine',
-];
-
-const emptyWeapon: Omit<Weapon, 'id'> = {
-  name: '',
-  type: '',
-  caliber: '',
-  manufacturerId: 0,
-  serialNumber: '',
-  manufactureDate: new Date().toISOString().split('T')[0],
-  status: 'Available',
-  description: '',
+const initialFormData: WeaponFormData = {
+  Name: '',
+  Type: '',
+  Model: '',
+  Serial_Number: '',
+  Manufacturer_ID: '',
+  Status: 'Active',
+  Caliber: '',
+  Assigned_Unit_ID: null,
+  Last_Inspection_Date: null,
+  Facility_ID: null,
+  Acquisition_Date: null
 };
 
 const WeaponForm: React.FC = () => {
-  const { id } = useParams();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isEditMode = id !== 'new';
+  const isEditMode = Boolean(id);
   
-  const [weapon, setWeapon] = useState<Omit<Weapon, 'id'>>(emptyWeapon);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [formData, setFormData] = useState<WeaponFormData>(initialFormData);
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   
-  const statusOptions: Array<Weapon['status']> = [
-    'Available',
-    'Assigned',
-    'Maintenance',
-    'Retired',
-  ];
-  
+  // Fetch weapon data and manufacturers
   useEffect(() => {
-    if (isEditMode && id) {
-      // In a real app, this would be an API call
-      const foundWeapon = mockWeapons.find(
-        (w) => w.id === parseInt(id, 10)
-      );
+    const fetchData = async () => {
+      setLoading(true);
       
-      if (foundWeapon) {
-        const { id, manufacturerName, ...rest } = foundWeapon;
-        setWeapon(rest);
-      } else {
-        // Weapon not found
-        navigate('/weapons');
+      try {
+        // Fetch manufacturers regardless of mode
+        const manufacturersData = await manufacturerApi.getAll();
+        setManufacturers(manufacturersData);
+        
+        // If in edit mode, fetch the weapon data
+        if (isEditMode && id) {
+          const weaponData = await weaponApi.getById(parseInt(id, 10));
+          setFormData({
+            Name: weaponData.Name || '',
+            Type: weaponData.Type || '',
+            Model: weaponData.Model || '',
+            Serial_Number: weaponData.Serial_Number || '',
+            Manufacturer_ID: weaponData.Manufacturer_ID || '',
+            Status: weaponData.Status || 'Active',
+            Caliber: (weaponData as any).Caliber || '',
+            Assigned_Unit_ID: (weaponData as any).Assigned_Unit_ID || null,
+            Last_Inspection_Date: (weaponData as any).Last_Inspection_Date || null,
+            Facility_ID: (weaponData as any).Facility_ID || null,
+            Acquisition_Date: (weaponData as any).Acquisition_Date || null
+          });
+        }
+      } catch (err: any) {
+        console.error('Error fetching data:', err);
+        setError(err.message || 'Failed to load data');
+      } finally {
+        setLoading(false);
       }
-    }
-    setIsInitialized(true);
-  }, [id, isEditMode, navigate]);
+    };
+    
+    fetchData();
+  }, [id, isEditMode]);
   
-  const validateForm = (): boolean => {
-    const newErrors: { [key: string]: string } = {};
-    
-    if (!weapon.name.trim()) {
-      newErrors.name = 'Name is required';
-    }
-    
-    if (!weapon.type) {
-      newErrors.type = 'Type is required';
-    }
-    
-    if (!weapon.caliber.trim()) {
-      newErrors.caliber = 'Caliber is required';
-    }
-    
-    if (!weapon.manufacturerId) {
-      newErrors.manufacturerId = 'Manufacturer is required';
-    }
-    
-    if (!weapon.serialNumber.trim()) {
-      newErrors.serialNumber = 'Serial number is required';
-    }
-    
-    if (!weapon.manufactureDate) {
-      newErrors.manufactureDate = 'Manufacture date is required';
-    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(weapon.manufactureDate)) {
-      newErrors.manufactureDate = 'Use format YYYY-MM-DD';
-    }
-    
-    if (!weapon.status) {
-      newErrors.status = 'Status is required';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle text field changes
+  const handleTextChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     
-    setWeapon((prev) => ({
-      ...prev,
-      [name]: name === 'manufacturerId' ? parseInt(value, 10) || 0 : value,
-    }));
-    
-    // Clear error when user starts typing again
-    if (errors[name]) {
-      setErrors((prev) => ({
+    if (name) {
+      setFormData(prev => ({
         ...prev,
-        [name]: '',
+        [name]: value
       }));
+      
+      // Clear validation error for this field
+      if (validationErrors[name]) {
+        setValidationErrors(prev => ({
+          ...prev,
+          [name]: ''
+        }));
+      }
     }
   };
   
+  // Handle select field changes
+  const handleSelectChange = (e: SelectChangeEvent<any>) => {
+    const { name, value } = e.target;
+    
+    if (name) {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      
+      // Clear validation error for this field
+      if (validationErrors[name]) {
+        setValidationErrors(prev => ({
+          ...prev,
+          [name]: ''
+        }));
+      }
+    }
+  };
+  
+  // Validate form
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    
+    if (!formData.Name) {
+      errors.Name = 'Name is required';
+    }
+    
+    if (!formData.Type) {
+      errors.Type = 'Type is required';
+    }
+    
+    if (!formData.Model) {
+      errors.Model = 'Model is required';
+    }
+    
+    if (!formData.Serial_Number) {
+      errors.Serial_Number = 'Serial Number is required';
+    }
+    
+    if (!formData.Manufacturer_ID) {
+      errors.Manufacturer_ID = 'Manufacturer is required';
+    }
+    
+    if (!formData.Status) {
+      errors.Status = 'Status is required';
+    }
+    
+    setValidationErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+  
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
-      setSubmitError('Please fill in all required fields correctly.');
       return;
     }
     
-    setIsSubmitting(true);
-    setSubmitError(null);
+    setSaveLoading(true);
     
     try {
-      // Simulate API call with a longer delay to show loading state
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Prepare the data, including all fields expected by the backend
+      const weaponData = {
+        Name: formData.Name,
+        Type: formData.Type,
+        Model: formData.Model,
+        Serial_Number: formData.Serial_Number,
+        Manufacturer_ID: formData.Manufacturer_ID !== '' ? Number(formData.Manufacturer_ID) : null,
+        Caliber: formData.Caliber || null,
+        Status: formData.Status || 'Active',
+        Assigned_Unit_ID: formData.Assigned_Unit_ID || null,
+        Last_Inspection_Date: formData.Last_Inspection_Date || null,
+        Facility_ID: formData.Facility_ID || null,
+        Acquisition_Date: formData.Acquisition_Date || undefined
+      };
       
-      // In a real app, you would make an API call here
-      // isEditMode ? updateWeapon(id, weapon) : createWeapon(weapon);
+      console.log('Form data prepared for submission:', weaponData);
       
-      // Only navigate after successful submission
-      navigate('/weapons');
-    } catch (error) {
-      setSubmitError('An error occurred while saving. Please try again.');
+      if (isEditMode && id) {
+        // Update existing weapon
+        console.log('Updating weapon with ID:', id);
+        try {
+          const response = await weaponApi.update(parseInt(id, 10), weaponData as unknown as Weapon);
+          console.log('Update response:', response);
+          navigate(`/weapons/${id}`);
+        } catch (updateError: any) {
+          console.error('Detailed update error:', updateError);
+          throw updateError;
+        }
+      } else {
+        // Create new weapon
+        console.log('Creating new weapon');
+        try {
+          const result = await weaponApi.create(weaponData as unknown as Weapon);
+          console.log('Create response:', result);
+          navigate(`/weapons/${result.id}`);
+        } catch (createError: any) {
+          console.error('Detailed create error:', createError);
+          throw createError;
+        }
+      }
+    } catch (err: any) {
+      console.error('Error saving weapon:', err);
+      if (err.response) {
+        console.error('Server response:', err.response.data);
+        setError(err.response.data.message || 'Failed to save weapon');
+      } else {
+        setError(err.message || 'Failed to save weapon');
+      }
     } finally {
-      setIsSubmitting(false);
+      setSaveLoading(false);
     }
   };
   
+  // Handle cancel
   const handleCancel = () => {
-    navigate('/weapons');
+    if (isEditMode && id) {
+      navigate(`/weapons/${id}`);
+    } else {
+      navigate('/weapons');
+    }
   };
-
-  if (!isInitialized) {
-    return null; // Don't render anything until initialization is complete
+  
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
   }
   
   return (
-    <Box sx={{ position: 'relative', zIndex: 2 }}>
+    <Box>
       <PageHeader
-        title={isEditMode ? 'Edit Weapon' : 'Add Weapon'}
-        icon={<SaveIcon fontSize="large" />}
+        title={isEditMode ? 'Edit Weapon' : 'Add New Weapon'}
+        icon={<GavelIcon fontSize="large" />}
         showButton={false}
       />
       
-      <Paper
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{
-          p: 3,
-          mb: 3,
-          borderRadius: theme.shape.borderRadius,
-          position: 'relative',
-          zIndex: 2,
-        }}
-      >
-        {submitError && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {submitError}
-          </Alert>
-        )}
-        
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Name"
-              name="name"
-              value={weapon.name}
-              onChange={handleInputChange}
-              error={!!errors.name}
-              helperText={errors.name}
-              required
-            />
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      )}
+      
+      <Card variant="outlined">
+        <CardHeader title="Weapon Information" />
+        <CardContent>
+          <Box component="form" onSubmit={handleSubmit}>
+            <Stack spacing={3}>
+              <TextField
+                fullWidth
+                label="Weapon Name"
+                name="Name"
+                value={formData.Name}
+                onChange={handleTextChange}
+                error={!!validationErrors.Name}
+                helperText={validationErrors.Name}
+                required
+              />
+              
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Type"
+                  name="Type"
+                  value={formData.Type}
+                  onChange={handleTextChange}
+                  error={!!validationErrors.Type}
+                  helperText={validationErrors.Type}
+                  required
+                />
+                
+                <TextField
+                  fullWidth
+                  label="Model"
+                  name="Model"
+                  value={formData.Model}
+                  onChange={handleTextChange}
+                  error={!!validationErrors.Model}
+                  helperText={validationErrors.Model}
+                  required
+                />
+              </Box>
+              
+              <TextField
+                fullWidth
+                label="Serial Number"
+                name="Serial_Number"
+                value={formData.Serial_Number}
+                onChange={handleTextChange}
+                error={!!validationErrors.Serial_Number}
+                helperText={validationErrors.Serial_Number}
+                required
+              />
+              
+              <FormControl fullWidth error={!!validationErrors.Manufacturer_ID} required>
+                <InputLabel id="manufacturer-label">Manufacturer</InputLabel>
+                <Select
+                  labelId="manufacturer-label"
+                  name="Manufacturer_ID"
+                  value={formData.Manufacturer_ID}
+                  onChange={handleSelectChange}
+                  label="Manufacturer"
+                >
+                  {manufacturers.map((manufacturer) => (
+                    <MenuItem key={manufacturer.Manufacturer_ID} value={manufacturer.Manufacturer_ID}>
+                      {manufacturer.Name} ({manufacturer.Country || 'Unknown'})
+                    </MenuItem>
+                  ))}
+                </Select>
+                {validationErrors.Manufacturer_ID && (
+                  <FormHelperText>{validationErrors.Manufacturer_ID}</FormHelperText>
+                )}
+              </FormControl>
+              
+              <FormControl fullWidth error={!!validationErrors.Status} required>
+                <InputLabel id="status-label">Status</InputLabel>
+                <Select
+                  labelId="status-label"
+                  name="Status"
+                  value={formData.Status}
+                  onChange={handleSelectChange}
+                  label="Status"
+                >
+                  {statusOptions.map((status) => (
+                    <MenuItem key={status} value={status}>
+                      {status}
+                    </MenuItem>
+                  ))}
+                </Select>
+                {validationErrors.Status && (
+                  <FormHelperText>{validationErrors.Status}</FormHelperText>
+                )}
+              </FormControl>
+              
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 3 }}>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<CancelIcon />}
+                  onClick={handleCancel}
+                  disabled={saveLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="primary"
+                  startIcon={<SaveIcon />}
+                  disabled={saveLoading}
+                >
+                  {saveLoading ? 'Saving...' : 'Save Weapon'}
+                </Button>
+              </Box>
+            </Stack>
           </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Type"
-              name="type"
-              value={weapon.type}
-              onChange={handleInputChange}
-              error={!!errors.type}
-              helperText={errors.type}
-              required
-            >
-              {weaponTypes.map((type) => (
-                <MenuItem key={type} value={type}>
-                  {type}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Caliber"
-              name="caliber"
-              value={weapon.caliber}
-              onChange={handleInputChange}
-              error={!!errors.caliber}
-              helperText={errors.caliber}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Manufacturer"
-              name="manufacturerId"
-              value={weapon.manufacturerId || ''}
-              onChange={handleInputChange}
-              error={!!errors.manufacturerId}
-              helperText={errors.manufacturerId}
-              required
-            >
-              {mockManufacturers.map((manufacturer) => (
-                <MenuItem key={manufacturer.id} value={manufacturer.id}>
-                  {manufacturer.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Serial Number"
-              name="serialNumber"
-              value={weapon.serialNumber}
-              onChange={handleInputChange}
-              error={!!errors.serialNumber}
-              helperText={errors.serialNumber}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Manufacture Date (YYYY-MM-DD)"
-              name="manufactureDate"
-              value={weapon.manufactureDate}
-              onChange={handleInputChange}
-              error={!!errors.manufactureDate}
-              helperText={errors.manufactureDate}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Status"
-              name="status"
-              value={weapon.status}
-              onChange={handleInputChange}
-              error={!!errors.status}
-              helperText={errors.status}
-              required
-            >
-              {statusOptions.map((status) => (
-                <MenuItem key={status} value={status}>
-                  {status}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 100%', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Description"
-              name="description"
-              value={weapon.description}
-              onChange={handleInputChange}
-              multiline
-              rows={4}
-            />
-          </Box>
-        </Box>
-        
-        <Divider sx={{ my: 3 }} />
-        
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={handleCancel}
-            startIcon={<CancelIcon />}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            startIcon={<SaveIcon />}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Saving...' : 'Save'}
-          </Button>
-        </Box>
-      </Paper>
+        </CardContent>
+      </Card>
     </Box>
   );
 };

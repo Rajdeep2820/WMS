@@ -2,427 +2,275 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
-  Paper,
-  Typography,
   TextField,
   Button,
+  Paper,
+  Typography,
   MenuItem,
-  Divider,
-  useTheme,
-  Alert,
+  CircularProgress,
+  SelectChangeEvent,
+  Select,
+  InputLabel,
+  FormControl,
 } from '@mui/material';
-import InventoryIcon from '@mui/icons-material/Inventory';
-import SaveIcon from '@mui/icons-material/Save';
-import CancelIcon from '@mui/icons-material/Cancel';
 import { PageHeader } from '../../components/common';
+import { ammunitionApi } from '../../services/api';
 import { Ammunition } from '../../types';
 
-// Mock ammunition data (in a real app would come from an API)
-const mockAmmunition: Ammunition[] = [
-  {
-    id: 1,
-    type: 'Rifle Cartridge',
-    caliber: '5.56×45mm NATO',
-    quantity: 10000,
-    manufacturerId: 1,
-    manufacturerName: 'Defense Systems Inc.',
-    batchNumber: 'B-5561-2023',
-    manufactureDate: '2023-03-15',
-    expirationDate: '2033-03-15',
-    storageId: 1,
-    storageName: 'Alpha Warehouse',
-    status: 'Available',
-  },
-  {
-    id: 2,
-    type: 'Pistol Cartridge',
-    caliber: '9×19mm Parabellum',
-    quantity: 5000,
-    manufacturerId: 2,
-    manufacturerName: 'Europa Arms',
-    batchNumber: 'B-9192-2023',
-    manufactureDate: '2023-02-20',
-    expirationDate: '2033-02-20',
-    storageId: 1,
-    storageName: 'Alpha Warehouse',
-    status: 'Available',
-  },
-];
-
-// Mock manufacturer data
-const mockManufacturers = [
-  { id: 1, name: 'Defense Systems Inc.' },
-  { id: 2, name: 'Europa Arms' },
-  { id: 3, name: 'Sakura Defense' },
-  { id: 4, name: 'Royal Armaments' },
-  { id: 5, name: 'Atlas Defense Systems' },
-];
-
-// Mock storage data
-const mockStorageFacilities = [
-  { id: 1, name: 'Alpha Warehouse' },
-  { id: 2, name: 'Bravo Storage' },
-  { id: 3, name: 'Charlie Bunker' },
-  { id: 4, name: 'Delta Vault' },
-];
-
-// Common ammunition types
-const ammunitionTypes = [
-  'Rifle Cartridge',
-  'Pistol Cartridge',
-  'Shotgun Shell',
-  'Sniper Cartridge',
-  'Machine Gun Cartridge',
-  'Hand Grenade',
-  'Mortar Round',
-  'Artillery Shell',
-  'Rocket',
-  'Missile',
-];
-
-const emptyAmmunition: Omit<Ammunition, 'id'> = {
-  type: '',
-  caliber: '',
-  quantity: 0,
-  manufacturerId: 0,
-  batchNumber: '',
-  manufactureDate: new Date().toISOString().split('T')[0],
-  expirationDate: '',
-  storageId: 0,
-  status: 'Available',
-};
-
 const AmmunitionForm: React.FC = () => {
-  const { id } = useParams();
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isEditMode = id !== 'new';
-  
-  const [ammunition, setAmmunition] = useState<Omit<Ammunition, 'id'>>(emptyAmmunition);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-  
-  const statusOptions: Array<Ammunition['status']> = [
-    'Available',
-    'Reserved',
-    'Depleted',
-    'Expired',
-  ];
-  
+  const { id } = useParams<{ id: string }>();
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Partial<Ammunition>>({
+    Name: '',
+    Type: '',
+    Caliber: '',
+    Quantity: 0,
+    Manufacturer_ID: undefined,
+    Facility_ID: undefined,
+    Status: 'Available',
+    Batch_Number: '',
+  });
+
   useEffect(() => {
-    if (isEditMode && id) {
-      // In a real app, this would be an API call
-      const foundAmmunition = mockAmmunition.find(
-        (a) => a.id === parseInt(id, 10)
-      );
-      
-      if (foundAmmunition) {
-        const { id, manufacturerName, storageName, ...rest } = foundAmmunition;
-        setAmmunition(rest);
-      } else {
-        // Ammunition not found
-        navigate('/ammunition');
-      }
+    if (id) {
+      fetchAmmunition();
     }
-    setIsInitialized(true);
-  }, [id, isEditMode, navigate]);
-  
-  const validateForm = (): boolean => {
-    const newErrors: { [key: string]: string } = {};
-    
-    if (!ammunition.type.trim()) {
-      newErrors.type = 'Type is required';
+  }, [id]);
+
+  const fetchAmmunition = async () => {
+    try {
+      setLoading(true);
+      const data = await ammunitionApi.getById(parseInt(id!, 10));
+      console.log('Ammunition data loaded:', data);
+      setFormData(data);
+    } catch (err) {
+      console.error('Error fetching ammunition:', err);
+      setError('Failed to fetch ammunition data');
+    } finally {
+      setLoading(false);
     }
-    
-    if (!ammunition.caliber.trim()) {
-      newErrors.caliber = 'Caliber is required';
-    }
-    
-    if (!ammunition.quantity || ammunition.quantity <= 0) {
-      newErrors.quantity = 'Quantity must be greater than 0';
-    }
-    
-    if (!ammunition.manufacturerId) {
-      newErrors.manufacturerId = 'Manufacturer is required';
-    }
-    
-    if (!ammunition.batchNumber.trim()) {
-      newErrors.batchNumber = 'Batch number is required';
-    }
-    
-    if (!ammunition.manufactureDate) {
-      newErrors.manufactureDate = 'Manufacture date is required';
-    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(ammunition.manufactureDate)) {
-      newErrors.manufactureDate = 'Use format YYYY-MM-DD';
-    }
-    
-    if (ammunition.expirationDate && !/^\d{4}-\d{2}-\d{2}$/.test(ammunition.expirationDate)) {
-      newErrors.expirationDate = 'Use format YYYY-MM-DD';
-    }
-    
-    if (!ammunition.storageId) {
-      newErrors.storageId = 'Storage facility is required';
-    }
-    
-    if (!ammunition.status) {
-      newErrors.status = 'Status is required';
-    }
-    
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
   };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      
+      // Create a copy of form data for submission
+      const submissionData = { ...formData };
+      
+      // Format dates properly for MySQL - convert ISO string to 'YYYY-MM-DD' format
+      if (submissionData.Production_Date) {
+        const prodDate = new Date(submissionData.Production_Date);
+        submissionData.Production_Date = prodDate.toISOString().split('T')[0];
+      }
+      
+      if (submissionData.Expiration_Date) {
+        const expDate = new Date(submissionData.Expiration_Date);
+        submissionData.Expiration_Date = expDate.toISOString().split('T')[0];
+      }
+      
+      // Check if Manufacturer_ID and Facility_ID exist and are valid
+      if (submissionData.Manufacturer_ID !== undefined && submissionData.Manufacturer_ID <= 0) {
+        submissionData.Manufacturer_ID = undefined;
+      }
+      
+      if (submissionData.Facility_ID !== undefined && submissionData.Facility_ID <= 0) {
+        submissionData.Facility_ID = undefined;
+      }
+      
+      console.log('Submitting ammunition data:', submissionData);
+      
+      if (id) {
+        await ammunitionApi.update(parseInt(id, 10), submissionData as Ammunition);
+      } else {
+        await ammunitionApi.create(submissionData as Ammunition);
+      }
+      
+      navigate('/ammunition');
+    } catch (err) {
+      console.error('Error saving ammunition:', err);
+      setError('Failed to save ammunition');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     
-    setAmmunition((prev) => ({
-      ...prev,
-      [name]: name === 'quantity' || name === 'manufacturerId' || name === 'storageId'
-        ? parseInt(value, 10) || 0
-        : value,
-    }));
-    
-    // Clear error when user starts typing again
-    if (errors[name]) {
-      setErrors((prev) => ({
+    // Convert numeric fields
+    if (name === 'Quantity' || name === 'Manufacturer_ID' || name === 'Facility_ID') {
+      const numValue = name === 'Quantity' ? parseInt(value) || 0 : value === '' ? undefined : parseInt(value);
+      setFormData((prev) => ({
         ...prev,
-        [name]: '',
+        [name]: numValue,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        [name]: value,
       }));
     }
   };
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      setSubmitError('Please fill in all required fields correctly.');
-      return;
-    }
-    
-    setIsSubmitting(true);
-    setSubmitError(null);
-    
-    try {
-      // Simulate API call with a longer delay to show loading state
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      
-      // In a real app, you would make an API call here
-      // isEditMode ? updateAmmunition(id, ammunition) : createAmmunition(ammunition);
-      
-      // Only navigate after successful submission
-      navigate('/ammunition');
-    } catch (error) {
-      setSubmitError('An error occurred while saving. Please try again.');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleSelectChange = (e: SelectChangeEvent) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
   
-  const handleCancel = () => {
-    navigate('/ammunition');
-  };
+  const statusOptions = ['Available', 'Reserved', 'Depleted', 'Expired'];
 
-  if (!isInitialized) {
-    return null; // Don't render anything until initialization is complete
+  if (loading && id) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
   }
-  
+
   return (
-    <Box sx={{ position: 'relative', zIndex: 2 }}>
+    <Box>
       <PageHeader
-        title={isEditMode ? 'Edit Ammunition' : 'Add Ammunition'}
-        icon={<InventoryIcon fontSize="large" />}
+        title={id ? 'Edit Ammunition' : 'Add New Ammunition'}
         showButton={false}
       />
-      
-      <Paper
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{
-          p: 3,
-          mb: 3,
-          borderRadius: theme.shape.borderRadius,
-          position: 'relative',
-          zIndex: 2,
-        }}
-      >
-        {submitError && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {submitError}
-          </Alert>
+      <Paper sx={{ p: 3 }}>
+        {error && (
+          <Typography color="error" sx={{ mb: 2 }}>
+            {error}
+          </Typography>
         )}
         
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Ammunition Type"
-              name="type"
-              value={ammunition.type}
-              onChange={handleInputChange}
-              error={!!errors.type}
-              helperText={errors.type}
-              required
-            >
-              {ammunitionTypes.map((type) => (
-                <MenuItem key={type} value={type}>
-                  {type}
-                </MenuItem>
-              ))}
-            </TextField>
+        <form onSubmit={handleSubmit}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: '250px' }}>
+                <TextField
+                  fullWidth
+                  label="Name"
+                  name="Name"
+                  value={formData.Name || ''}
+                  onChange={handleChange}
+                  required
+                />
+              </Box>
+              
+              <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: '250px' }}>
+                <TextField
+                  fullWidth
+                  label="Type"
+                  name="Type"
+                  value={formData.Type || ''}
+                  onChange={handleChange}
+                  required
+                />
+              </Box>
+            </Box>
+            
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: '250px' }}>
+                <TextField
+                  fullWidth
+                  label="Caliber"
+                  name="Caliber"
+                  value={formData.Caliber || ''}
+                  onChange={handleChange}
+                />
+              </Box>
+              
+              <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: '250px' }}>
+                <TextField
+                  fullWidth
+                  label="Batch Number"
+                  name="Batch_Number"
+                  value={formData.Batch_Number || ''}
+                  onChange={handleChange}
+                />
+              </Box>
+            </Box>
+            
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: '250px' }}>
+                <TextField
+                  fullWidth
+                  label="Quantity"
+                  name="Quantity"
+                  type="number"
+                  value={formData.Quantity || 0}
+                  onChange={handleChange}
+                  required
+                />
+              </Box>
+              
+              <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: '250px' }}>
+                <FormControl fullWidth>
+                  <InputLabel id="status-label">Status</InputLabel>
+                  <Select
+                    labelId="status-label"
+                    id="status"
+                    name="Status"
+                    value={formData.Status || 'Available'}
+                    label="Status"
+                    onChange={handleSelectChange}
+                    required
+                  >
+                    {statusOptions.map((status) => (
+                      <MenuItem key={status} value={status}>
+                        {status}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Box>
+            </Box>
+            
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: '250px' }}>
+                <TextField
+                  fullWidth
+                  label="Manufacturer ID"
+                  name="Manufacturer_ID"
+                  type="number"
+                  value={formData.Manufacturer_ID || ''}
+                  onChange={handleChange}
+                />
+              </Box>
+              
+              <Box sx={{ flex: '1 1 calc(50% - 8px)', minWidth: '250px' }}>
+                <TextField
+                  fullWidth
+                  label="Facility ID"
+                  name="Facility_ID"
+                  type="number"
+                  value={formData.Facility_ID || ''}
+                  onChange={handleChange}
+                />
+              </Box>
+            </Box>
+            
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, mt: 2 }}>
+              <Button
+                variant="outlined"
+                onClick={() => navigate('/ammunition')}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={24} /> : (id ? 'Update' : 'Create')}
+              </Button>
+            </Box>
           </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Caliber"
-              name="caliber"
-              value={ammunition.caliber}
-              onChange={handleInputChange}
-              error={!!errors.caliber}
-              helperText={errors.caliber}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Quantity"
-              name="quantity"
-              type="number"
-              value={ammunition.quantity || ''}
-              onChange={handleInputChange}
-              error={!!errors.quantity}
-              helperText={errors.quantity}
-              required
-              inputProps={{ min: 1 }}
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Manufacturer"
-              name="manufacturerId"
-              value={ammunition.manufacturerId || ''}
-              onChange={handleInputChange}
-              error={!!errors.manufacturerId}
-              helperText={errors.manufacturerId}
-              required
-            >
-              {mockManufacturers.map((manufacturer) => (
-                <MenuItem key={manufacturer.id} value={manufacturer.id}>
-                  {manufacturer.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Batch Number"
-              name="batchNumber"
-              value={ammunition.batchNumber}
-              onChange={handleInputChange}
-              error={!!errors.batchNumber}
-              helperText={errors.batchNumber}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Storage Facility"
-              name="storageId"
-              value={ammunition.storageId || ''}
-              onChange={handleInputChange}
-              error={!!errors.storageId}
-              helperText={errors.storageId}
-              required
-            >
-              {mockStorageFacilities.map((facility) => (
-                <MenuItem key={facility.id} value={facility.id}>
-                  {facility.name}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Manufacture Date (YYYY-MM-DD)"
-              name="manufactureDate"
-              value={ammunition.manufactureDate}
-              onChange={handleInputChange}
-              error={!!errors.manufactureDate}
-              helperText={errors.manufactureDate}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Expiration Date (YYYY-MM-DD)"
-              name="expirationDate"
-              value={ammunition.expirationDate || ''}
-              onChange={handleInputChange}
-              error={!!errors.expirationDate}
-              helperText={errors.expirationDate}
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              select
-              label="Status"
-              name="status"
-              value={ammunition.status}
-              onChange={handleInputChange}
-              error={!!errors.status}
-              helperText={errors.status}
-              required
-            >
-              {statusOptions.map((status) => (
-                <MenuItem key={status} value={status}>
-                  {status}
-                </MenuItem>
-              ))}
-            </TextField>
-          </Box>
-        </Box>
-        
-        <Divider sx={{ my: 3 }} />
-        
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={handleCancel}
-            startIcon={<CancelIcon />}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            startIcon={<SaveIcon />}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Saving...' : 'Save'}
-          </Button>
-        </Box>
+        </form>
       </Paper>
     </Box>
   );

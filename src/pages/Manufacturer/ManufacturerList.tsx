@@ -1,223 +1,249 @@
-import React, { useState } from 'react';
-import { Box, Button, useTheme } from '@mui/material';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  Box,
+  Typography,
+  Chip,
+  Alert,
+  AlertTitle,
+  Button,
+} from '@mui/material';
 import FactoryIcon from '@mui/icons-material/Factory';
-import { DataTable, PageHeader, SearchBar } from '../../components/common';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import {
+  DataTable,
+  PageHeader,
+  SearchBar,
+  StatusChip,
+} from '../../components/common';
 import { Manufacturer, SortConfig } from '../../types';
-
-// Mock data for manufacturers
-const mockManufacturers: Manufacturer[] = [
-  {
-    id: 1,
-    name: 'Defense Systems Inc.',
-    country: 'United States',
-    established: '1985-06-12',
-    contact: 'John Smith',
-    email: 'jsmith@defensesys.com',
-    phone: '+1-555-123-4567',
-    address: '123 Weapons Ave, Arlington, VA 22201',
-  },
-  {
-    id: 2,
-    name: 'Europa Arms',
-    country: 'Germany',
-    established: '1964-02-28',
-    contact: 'Hans Weber',
-    email: 'hweber@europaarms.de',
-    phone: '+49-30-987-6543',
-    address: 'Waffenstraße 45, Berlin, 10115',
-  },
-  {
-    id: 3,
-    name: 'Sakura Defense',
-    country: 'Japan',
-    established: '1972-11-05',
-    contact: 'Takashi Yamamoto',
-    email: 'tyamamoto@sakuradefense.jp',
-    phone: '+81-3-1234-5678',
-    address: '7-1 Military District, Tokyo, 105-0021',
-  },
-  {
-    id: 4,
-    name: 'Royal Armaments',
-    country: 'United Kingdom',
-    established: '1897-03-15',
-    contact: 'Elizabeth Parker',
-    email: 'eparker@royalarmaments.co.uk',
-    phone: '+44-20-7946-0987',
-    address: '42 Crown St, London, SW1A 1AA',
-  },
-  {
-    id: 5,
-    name: 'Atlas Defense Systems',
-    country: 'France',
-    established: '1983-09-22',
-    contact: 'Jean Dupont',
-    email: 'jdupont@atlasdefense.fr',
-    phone: '+33-1-2345-6789',
-    address: '15 Rue de la Défense, Paris, 75001',
-  },
-];
+import { manufacturerApi } from '../../services/api';
 
 const ManufacturerList: React.FC = () => {
-  const [manufacturers, setManufacturers] = useState<Manufacturer[]>(mockManufacturers);
+  const [manufacturers, setManufacturers] = useState<Manufacturer[]>([]);
+  const [filteredManufacturers, setFilteredManufacturers] = useState<Manufacturer[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'name', direction: 'asc' });
-  
-  const theme = useTheme();
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: 'Name',
+    direction: 'asc',
+  });
+
   const navigate = useNavigate();
-  
-  // Define columns for the table
+
+  // Fetch manufacturers data
+  const fetchManufacturers = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await manufacturerApi.getAll();
+      setManufacturers(data);
+      setFilteredManufacturers(data);
+    } catch (err: any) {
+      console.error('Error fetching manufacturers:', err);
+      setError(err.message || 'Failed to fetch manufacturers');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchManufacturers();
+  }, []);
+
+  // Define columns for the data table
   const columns = [
-    { 
-      id: 'name', 
-      label: 'Name', 
-      minWidth: 170,
+    {
+      id: 'Name',
+      label: 'Name',
+      minWidth: 180,
       sortable: true,
     },
-    { 
-      id: 'country', 
-      label: 'Country', 
-      minWidth: 100,
-      sortable: true,
-    },
-    { 
-      id: 'established', 
-      label: 'Established', 
+    {
+      id: 'Country',
+      label: 'Country',
       minWidth: 120,
       sortable: true,
-      format: (value: string) => new Date(value).toLocaleDateString(),
     },
-    { 
-      id: 'contact', 
-      label: 'Contact Person', 
-      minWidth: 150,
+    {
+      id: 'Contact_Info',
+      label: 'Contact Info',
+      minWidth: 180,
       sortable: true,
     },
-    { 
-      id: 'email', 
-      label: 'Email', 
-      minWidth: 170,
+    {
+      id: 'Status',
+      label: 'Status',
+      minWidth: 140,
       sortable: true,
+      format: (value: string) => {
+        const colorMap: Record<string, "success" | "error" | "warning" | "default"> = {
+          'Active': 'success',
+          'Inactive': 'error',
+          'Suspended': 'warning'
+        };
+        
+        return (
+          <Chip
+            size="small"
+            label={value}
+            color={colorMap[value] || 'default'}
+            variant="outlined"
+          />
+        );
+      },
     },
-    { 
-      id: 'phone', 
-      label: 'Phone', 
-      minWidth: 150,
+    {
+      id: 'Weapon_Count',
+      label: 'Weapons',
+      minWidth: 100,
+      align: 'right' as 'right',
       sortable: true,
+      format: (value: number | undefined) => value || 0,
     },
   ];
-  
-  // Handle page change
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
-  
-  // Handle rows per page change
-  const handleRowsPerPageChange = (newRowsPerPage: number) => {
-    setRowsPerPage(newRowsPerPage);
+
+  // Handle search
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
     setPage(0);
+
+    if (!query) {
+      setFilteredManufacturers(manufacturers);
+      return;
+    }
+
+    const lowerQuery = query.toLowerCase();
+    const filtered = manufacturers.filter((manufacturer) => {
+      return (
+        manufacturer.Name.toLowerCase().includes(lowerQuery) ||
+        manufacturer.Country.toLowerCase().includes(lowerQuery) ||
+        manufacturer.Contact_Info.toLowerCase().includes(lowerQuery)
+      );
+    });
+
+    setFilteredManufacturers(filtered);
   };
-  
+
   // Handle sort
   const handleSort = (newSortConfig: SortConfig) => {
     setSortConfig(newSortConfig);
-    
-    // Sort data based on key and direction
-    const sortedData = [...manufacturers].sort((a, b) => {
+
+    const sortedData = [...filteredManufacturers].sort((a, b) => {
       const aValue = a[newSortConfig.key as keyof Manufacturer];
       const bValue = b[newSortConfig.key as keyof Manufacturer];
-      
+
+      if (!aValue && !bValue) return 0;
+      if (!aValue) return 1;
+      if (!bValue) return -1;
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return newSortConfig.direction === 'asc'
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      }
+
+      // @ts-ignore: This is safe because we've already checked for null values
       if (aValue < bValue) {
         return newSortConfig.direction === 'asc' ? -1 : 1;
       }
+      // @ts-ignore: This is safe because we've already checked for null values
       if (aValue > bValue) {
         return newSortConfig.direction === 'asc' ? 1 : -1;
       }
       return 0;
     });
-    
-    setManufacturers(sortedData);
+
+    setFilteredManufacturers(sortedData);
   };
-  
-  // Handle search
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    setPage(0);
-    
-    if (!query) {
-      setManufacturers(mockManufacturers);
-      return;
-    }
-    
-    const filteredData = mockManufacturers.filter((manufacturer) => {
-      const lowerQuery = query.toLowerCase();
-      return (
-        manufacturer.name.toLowerCase().includes(lowerQuery) ||
-        manufacturer.country.toLowerCase().includes(lowerQuery) ||
-        manufacturer.contact.toLowerCase().includes(lowerQuery) ||
-        manufacturer.email.toLowerCase().includes(lowerQuery)
-      );
-    });
-    
-    setManufacturers(filteredData);
-  };
-  
-  // Handle view details
+
+  // Navigate to manufacturer details page
   const handleView = (id: number) => {
     navigate(`/manufacturers/${id}`);
   };
-  
-  // Handle edit
+
+  // Navigate to manufacturer edit page
   const handleEdit = (id: number) => {
     navigate(`/manufacturers/edit/${id}`);
   };
-  
-  // Handle delete
-  const handleDelete = (id: number) => {
-    // In a real app, you'd call an API here
-    const updatedManufacturers = manufacturers.filter(
-      (manufacturer) => manufacturer.id !== id
-    );
-    setManufacturers(updatedManufacturers);
+
+  // Delete a manufacturer
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this manufacturer?')) {
+      try {
+        await manufacturerApi.delete(id);
+        setManufacturers((prev) => 
+          prev.filter((manufacturer) => manufacturer.Manufacturer_ID !== id)
+        );
+        setFilteredManufacturers((prev) =>
+          prev.filter((manufacturer) => manufacturer.Manufacturer_ID !== id)
+        );
+      } catch (err: any) {
+        console.error('Error deleting manufacturer:', err);
+        setError(err.message || 'Failed to delete manufacturer');
+      }
+    }
   };
-  
-  // Handle add new
+
+  // Navigate to add new manufacturer page
   const handleAddNew = () => {
     navigate('/manufacturers/new');
   };
-  
+
   return (
     <Box>
-      <PageHeader 
-        title="Manufacturers" 
+      <PageHeader
+        title="Manufacturers"
         icon={<FactoryIcon fontSize="large" />}
         onAdd={handleAddNew}
         buttonText="Add Manufacturer"
+        showButton={true}
       />
-      
+
+      {error && (
+        <Alert 
+          severity="error" 
+          sx={{ mb: 3 }}
+          action={
+            <Button 
+              color="inherit" 
+              size="small" 
+              onClick={fetchManufacturers}
+              startIcon={<RefreshIcon />}
+            >
+              Retry
+            </Button>
+          }
+        >
+          <AlertTitle>Error</AlertTitle>
+          {error}
+        </Alert>
+      )}
+
       <Box sx={{ mb: 3 }}>
-        <SearchBar 
+        <SearchBar
           onSearch={handleSearch}
           placeholder="Search manufacturers..."
           initialValue={searchQuery}
         />
       </Box>
-      
-      <DataTable 
+
+      <DataTable
         columns={columns}
-        data={manufacturers}
+        data={filteredManufacturers}
         page={page}
         rowsPerPage={rowsPerPage}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
+        onPageChange={setPage}
+        onRowsPerPageChange={setRowsPerPage}
         onSort={handleSort}
         sortConfig={sortConfig}
         onView={handleView}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        getRowId={(row) => row.Manufacturer_ID || 0}
       />
     </Box>
   );

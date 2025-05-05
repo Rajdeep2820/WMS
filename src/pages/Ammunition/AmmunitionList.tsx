@@ -1,259 +1,147 @@
-import React, { useState } from 'react';
-import { Box, Button, useTheme } from '@mui/material';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import InventoryIcon from '@mui/icons-material/Inventory';
-import { DataTable, PageHeader, SearchBar } from '../../components/common';
-import { Ammunition, SortConfig } from '../../types';
-
-// Mock data for ammunition
-const mockAmmunition: Ammunition[] = [
-  {
-    id: 1,
-    type: 'Rifle Cartridge',
-    caliber: '5.56×45mm NATO',
-    quantity: 10000,
-    manufacturerId: 1,
-    manufacturerName: 'Defense Systems Inc.',
-    batchNumber: 'B-5561-2023',
-    manufactureDate: '2023-03-15',
-    expirationDate: '2033-03-15',
-    storageId: 1,
-    storageName: 'Alpha Warehouse',
-    status: 'Available',
-  },
-  {
-    id: 2,
-    type: 'Pistol Cartridge',
-    caliber: '9×19mm Parabellum',
-    quantity: 5000,
-    manufacturerId: 2,
-    manufacturerName: 'Europa Arms',
-    batchNumber: 'B-9192-2023',
-    manufactureDate: '2023-02-20',
-    expirationDate: '2033-02-20',
-    storageId: 1,
-    storageName: 'Alpha Warehouse',
-    status: 'Available',
-  },
-  {
-    id: 3,
-    type: 'Shotgun Shell',
-    caliber: '12 Gauge',
-    quantity: 3000,
-    manufacturerId: 1,
-    manufacturerName: 'Defense Systems Inc.',
-    batchNumber: 'B-12G-2023',
-    manufactureDate: '2023-01-10',
-    expirationDate: '2028-01-10',
-    storageId: 2,
-    storageName: 'Bravo Storage',
-    status: 'Available',
-  },
-  {
-    id: 4,
-    type: 'Sniper Cartridge',
-    caliber: '.338 Lapua Magnum',
-    quantity: 1000,
-    manufacturerId: 3,
-    manufacturerName: 'Sakura Defense',
-    batchNumber: 'B-338L-2022',
-    manufactureDate: '2022-11-05',
-    expirationDate: '2032-11-05',
-    storageId: 3,
-    storageName: 'Charlie Bunker',
-    status: 'Reserved',
-  },
-  {
-    id: 5,
-    type: 'Machine Gun Cartridge',
-    caliber: '7.62×51mm NATO',
-    quantity: 8000,
-    manufacturerId: 4,
-    manufacturerName: 'Royal Armaments',
-    batchNumber: 'B-7621-2022',
-    manufactureDate: '2022-09-12',
-    expirationDate: '2032-09-12',
-    storageId: 2,
-    storageName: 'Bravo Storage',
-    status: 'Available',
-  },
-];
+import { Box, IconButton, Tooltip } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import { PageHeader, DataTable } from '../../components/common';
+import { ammunitionApi } from '../../services/api';
+import { Ammunition } from '../../types';
 
 const AmmunitionList: React.FC = () => {
-  const [ammunition, setAmmunition] = useState<Ammunition[]>(mockAmmunition);
+  const navigate = useNavigate();
+  const [ammunition, setAmmunition] = useState<Ammunition[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [sortConfig, setSortConfig] = useState<SortConfig>({ key: 'type', direction: 'asc' });
-  
-  const theme = useTheme();
-  const navigate = useNavigate();
-  
-  // Define columns for the table
+
+  useEffect(() => {
+    fetchAmmunition();
+  }, []);
+
+  const fetchAmmunition = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('Fetching ammunition...');
+      
+      const data = await ammunitionApi.getAll();
+      console.log('Ammunition data:', data);
+      
+      setAmmunition(data);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error fetching ammunition:', err);
+      setError('Failed to fetch ammunition data');
+      setLoading(false);
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (window.confirm('Are you sure you want to delete this ammunition?')) {
+      try {
+        await ammunitionApi.delete(id);
+        fetchAmmunition();
+      } catch (err) {
+        console.error('Error deleting ammunition:', err);
+        setError('Failed to delete ammunition');
+      }
+    }
+  };
+
   const columns = [
-    { 
-      id: 'type', 
-      label: 'Type', 
-      minWidth: 150,
-      sortable: true,
+    { id: 'Ammunition_ID', label: 'ID', minWidth: 50 },
+    { id: 'Name', label: 'Name', minWidth: 150 },
+    { id: 'Type', label: 'Type', minWidth: 100 },
+    { id: 'Caliber', label: 'Caliber', minWidth: 100 },
+    { id: 'Quantity', label: 'Quantity', minWidth: 80 },
+    { id: 'Manufacturer_Name', label: 'Manufacturer', minWidth: 150 },
+    { id: 'Batch_Number', label: 'Batch #', minWidth: 100 },
+    { id: 'Production_Date', label: 'Production Date', minWidth: 120, 
+      format: (value: string) => value ? new Date(value).toLocaleDateString() : 'N/A' },
+    { id: 'Expiration_Date', label: 'Expiration Date', minWidth: 120,
+      format: (value: string) => value ? new Date(value).toLocaleDateString() : 'N/A' },
+    { id: 'Facility_Name', label: 'Storage Location', minWidth: 150 },
+    { id: 'Status', label: 'Status', minWidth: 100,
+      format: (value: string) => (
+        <Box
+          component="span"
+          sx={{
+            px: 1,
+            py: 0.5,
+            borderRadius: 1,
+            color: 'white',
+            bgcolor: 
+              value === 'Available' ? 'success.main' :
+              value === 'Reserved' ? 'info.main' :
+              value === 'Depleted' ? 'warning.main' :
+              'error.main'
+          }}
+        >
+          {value}
+        </Box>
+      )
     },
-    { 
-      id: 'caliber', 
-      label: 'Caliber', 
-      minWidth: 120,
-      sortable: true,
-    },
-    { 
-      id: 'quantity', 
-      label: 'Quantity', 
+    {
+      id: 'actions',
+      label: 'Actions',
       minWidth: 100,
-      sortable: true,
-      format: (value: number) => value.toLocaleString(),
-    },
-    { 
-      id: 'manufacturerName', 
-      label: 'Manufacturer', 
-      minWidth: 150,
-      sortable: true,
-    },
-    { 
-      id: 'batchNumber', 
-      label: 'Batch Number', 
-      minWidth: 120,
-      sortable: true,
-    },
-    { 
-      id: 'manufactureDate', 
-      label: 'Manufacture Date', 
-      minWidth: 150,
-      sortable: true,
-      format: (value: string) => new Date(value).toLocaleDateString(),
-    },
-    { 
-      id: 'status', 
-      label: 'Status', 
-      minWidth: 120,
-      sortable: true,
+      align: 'center' as const,
+      format: (value: any, row: Ammunition) => (
+        <Box>
+          <Tooltip title="View">
+            <IconButton
+              size="small"
+              onClick={() => navigate(`/ammunition/${row.Ammunition_ID}`)}
+            >
+              <VisibilityIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Edit">
+            <IconButton
+              size="small"
+              onClick={() => navigate(`/ammunition/${row.Ammunition_ID}/edit`)}
+            >
+              <EditIcon />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Delete">
+            <IconButton
+              size="small"
+              onClick={() => handleDelete(row.Ammunition_ID || 0)}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      ),
     },
   ];
-  
-  // Handle page change
-  const handlePageChange = (newPage: number) => {
-    setPage(newPage);
-  };
-  
-  // Handle rows per page change
-  const handleRowsPerPageChange = (newRowsPerPage: number) => {
-    setRowsPerPage(newRowsPerPage);
-    setPage(0);
-  };
-  
-  // Handle sort
-  const handleSort = (newSortConfig: SortConfig) => {
-    setSortConfig(newSortConfig);
-    
-    // Sort data based on key and direction
-    const sortedData = [...ammunition].sort((a, b) => {
-      const aValue = a[newSortConfig.key as keyof Ammunition];
-      const bValue = b[newSortConfig.key as keyof Ammunition];
-      
-      if (!aValue && !bValue) return 0;
-      if (!aValue) return 1;
-      if (!bValue) return -1;
-      
-      if (aValue < bValue) {
-        return newSortConfig.direction === 'asc' ? -1 : 1;
-      }
-      if (aValue > bValue) {
-        return newSortConfig.direction === 'asc' ? 1 : -1;
-      }
-      return 0;
-    });
-    
-    setAmmunition(sortedData);
-  };
-  
-  // Handle search
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    setPage(0);
-    
-    if (!query) {
-      setAmmunition(mockAmmunition);
-      return;
-    }
-    
-    const filteredData = mockAmmunition.filter((ammo) => {
-      const lowerQuery = query.toLowerCase();
-      return (
-        ammo.type.toLowerCase().includes(lowerQuery) ||
-        ammo.caliber.toLowerCase().includes(lowerQuery) ||
-        (ammo.manufacturerName?.toLowerCase().includes(lowerQuery) || false) ||
-        ammo.batchNumber.toLowerCase().includes(lowerQuery) ||
-        (ammo.storageName?.toLowerCase().includes(lowerQuery) || false) ||
-        ammo.status.toLowerCase().includes(lowerQuery)
-      );
-    });
-    
-    setAmmunition(filteredData);
-  };
-  
-  // Handle view details
-  const handleView = (id: number) => {
-    navigate(`/ammunition/${id}`);
-  };
-  
-  // Handle edit
-  const handleEdit = (id: number) => {
-    navigate(`/ammunition/edit/${id}`);
-  };
-  
-  // Handle delete
-  const handleDelete = (id: number) => {
-    // In a real app, you'd call an API here
-    const updatedAmmunition = ammunition.filter(
-      (ammo) => ammo.id !== id
-    );
-    setAmmunition(updatedAmmunition);
-  };
-  
-  // Handle add new
-  const handleAddNew = () => {
-    navigate('/ammunition/new');
-  };
-  
+
+  if (error) return <div>{error}</div>;
+
   return (
     <Box>
-      <PageHeader 
-        title="Ammunition" 
-        icon={<InventoryIcon fontSize="large" />}
-        onAdd={handleAddNew}
-        buttonText="Add Ammunition"
+      <PageHeader
+        title="Ammunition"
+        showButton
+        buttonText="Add New Ammunition"
+        buttonIcon={<AddIcon />}
+        onButtonClick={() => navigate('/ammunition/new')}
       />
-      
-      <Box sx={{ mb: 3 }}>
-        <SearchBar 
-          onSearch={handleSearch}
-          placeholder="Search ammunition..."
-          initialValue={searchQuery}
-        />
-      </Box>
-      
-      <DataTable 
+      <DataTable
         columns={columns}
         data={ammunition}
+        loading={loading}
         page={page}
         rowsPerPage={rowsPerPage}
-        onPageChange={handlePageChange}
-        onRowsPerPageChange={handleRowsPerPageChange}
-        onSort={handleSort}
-        sortConfig={sortConfig}
-        onView={handleView}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
+        onPageChange={setPage}
+        onRowsPerPageChange={setRowsPerPage}
       />
     </Box>
   );
 };
 
-export default AmmunitionList;
+export default AmmunitionList; 

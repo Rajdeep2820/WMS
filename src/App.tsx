@@ -1,103 +1,117 @@
-import React from 'react';
+import React, { Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ThemeProvider } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
-import theme from './theme';
-import { Layout } from './components/layout';
-import Dashboard from './pages/Dashboard';
-import { ManufacturerList, ManufacturerForm } from './pages/Manufacturer';
-import { WeaponList, WeaponForm } from './pages/Weapon';
-import { MilitaryUnitList, MilitaryUnitForm } from './pages/MilitaryUnit';
-import { AmmunitionList, AmmunitionForm } from './pages/Ammunition';
-import { MaintenanceList, MaintenanceForm } from './pages/Maintenance';
-import { SoldierList, SoldierForm } from './pages/Soldier';
-import { WeaponAssignmentList, WeaponAssignmentForm } from './pages/WeaponAssignment';
-import { StorageFacilityList, StorageFacilityForm } from './pages/StorageFacility';
+import Layout from './components/layout/Layout';
+import { Box, CircularProgress } from '@mui/material';
 
+// Lazy load pages for better performance
+const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 
-// For now, add placeholder components for other pages
-const PlaceholderPage = ({ title }: { title: string }) => <div>{title} Page</div>;
+// Manufacturer pages
+const ManufacturerList = React.lazy(() => import('./pages/Manufacturer/ManufacturerList'));
+const ManufacturerForm = React.lazy(() => import('./pages/Manufacturer/ManufacturerForm'));
+const ManufacturerDetails = React.lazy(() => import('./pages/Manufacturer/ManufacturerDetails'));
 
-function App() {
+// Ammunition pages
+const AmmunitionList = React.lazy(() => import('./pages/Ammunition/AmmunitionList'));
+const AmmunitionForm = React.lazy(() => import('./pages/Ammunition/AmmunitionForm'));
+const AmmunitionDetails = React.lazy(() => import('./pages/Ammunition/AmmunitionDetails'));
+
+// Maintenance pages
+const MaintenanceList = React.lazy(() => import('./pages/Maintenance/MaintenanceList'));
+const MaintenanceForm = React.lazy(() => import('./pages/Maintenance/MaintenanceForm'));
+const MaintenanceDetails = React.lazy(() => import('./pages/Maintenance/MaintenanceDetails'));
+
+// Storage Facility pages
+const StorageFacilityList = React.lazy(() => import('./pages/StorageFacility/StorageFacilityList'));
+const StorageFacilityForm = React.lazy(() => import('./pages/StorageFacility/StorageFacilityForm'));
+const StorageFacilityDetails = React.lazy(() => import('./pages/StorageFacility/StorageFacilityDetails'));
+
+// Weapon pages
+const WeaponList = React.lazy(() => import('./pages/Weapon/WeaponList'));
+const WeaponForm = React.lazy(() => import('./pages/Weapon/WeaponForm'));
+const WeaponDetails = React.lazy(() => import('./pages/Weapon/WeaponDetails'));
+
+// Personnel (Soldier) pages
+const SoldierList = React.lazy(() => import('./pages/Soldier/SoldierList'));
+const SoldierForm = React.lazy(() => import('./pages/Soldier/SoldierForm'));
+const SoldierDetails = React.lazy(() => import('./pages/Soldier/SoldierDetails'));
+
+// Weapon Assignment pages
+const WeaponAssignmentList = React.lazy(() => import('./pages/WeaponAssignment/WeaponAssignmentList'));
+const WeaponAssignmentForm = React.lazy(() => import('./pages/WeaponAssignment/WeaponAssignmentForm'));
+const WeaponAssignmentDetails = React.lazy(() => import('./pages/WeaponAssignment/WeaponAssignmentDetails'));
+
+// Loading component for suspense
+const LoadingFallback = () => (
+  <Box 
+    display="flex" 
+    justifyContent="center" 
+    alignItems="center" 
+    minHeight="100vh"
+  >
+    <CircularProgress />
+  </Box>
+);
+
+const App: React.FC = () => {
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Router>
-        <Routes>
-          <Route path="/" element={<Layout />}>
-            <Route index element={<Dashboard />} />
+    <Router>
+      <Layout>
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            {/* Dashboard */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            <Route path="/dashboard" element={<Dashboard />} />
             
-            {/* Manufacturers */}
-            <Route path="manufacturers">
-              <Route index element={<ManufacturerList />} />
-              <Route path="new" element={<ManufacturerForm />} />
-              <Route path="edit/:id" element={<ManufacturerForm />} />
-              <Route path=":id" element={<ManufacturerForm />} />
-            </Route>
+            {/* Manufacturer routes */}
+            <Route path="/manufacturers" element={<ManufacturerList />} />
+            <Route path="/manufacturers/new" element={<ManufacturerForm />} />
+            <Route path="/manufacturers/:id" element={<ManufacturerDetails />} />
+            <Route path="/manufacturers/edit/:id" element={<ManufacturerForm />} />
             
-            {/* Weapons */}
-            <Route path="weapons">
-              <Route index element={<WeaponList />} />
-              <Route path="new" element={<WeaponForm />} />
-              <Route path="edit/:id" element={<WeaponForm />} />
-              <Route path=":id" element={<WeaponForm />} />
-            </Route>
+            {/* Ammunition routes */}
+            <Route path="/ammunition" element={<AmmunitionList />} />
+            <Route path="/ammunition/new" element={<AmmunitionForm />} />
+            <Route path="/ammunition/:id" element={<AmmunitionDetails />} />
+            <Route path="/ammunition/:id/edit" element={<AmmunitionForm />} />
             
-            {/* Military Units */}
-            <Route path="military-units">
-              <Route index element={<MilitaryUnitList />} />
-              <Route path="new" element={<MilitaryUnitForm />} />
-              <Route path="edit/:id" element={<MilitaryUnitForm />} />
-              <Route path=":id" element={<MilitaryUnitForm />} />
-            </Route>
+            {/* Maintenance routes */}
+            <Route path="/weapon-maintenance" element={<MaintenanceList />} />
+            <Route path="/weapon-maintenance/new" element={<MaintenanceForm />} />
+            <Route path="/weapon-maintenance/:id" element={<MaintenanceDetails />} />
+            <Route path="/weapon-maintenance/:id/edit" element={<MaintenanceForm />} />
             
-            {/* Ammunition */}
-            <Route path="ammunition">
-              <Route index element={<AmmunitionList />} />
-              <Route path="new" element={<AmmunitionForm />} />
-              <Route path="edit/:id" element={<AmmunitionForm />} />
-              <Route path=":id" element={<AmmunitionForm />} />
-            </Route>
+            {/* Storage Facility routes */}
+            <Route path="/storage-facilities" element={<StorageFacilityList />} />
+            <Route path="/storage-facilities/new" element={<StorageFacilityForm />} />
+            <Route path="/storage-facilities/:id" element={<StorageFacilityDetails />} />
+            <Route path="/storage-facilities/edit/:id" element={<StorageFacilityForm />} />
             
-            {/* Soldiers */}
-            <Route path="soldiers">
-              <Route index element={<SoldierList />} />
-              <Route path="new" element={<SoldierForm />} />
-              <Route path="edit/:id" element={<SoldierForm />} />
-              <Route path=":id" element={<SoldierForm />} />
-            </Route>
+            {/* Weapon routes */}
+            <Route path="/weapons" element={<WeaponList />} />
+            <Route path="/weapons/new" element={<WeaponForm />} />
+            <Route path="/weapons/:id" element={<WeaponDetails />} />
+            <Route path="/weapons/edit/:id" element={<WeaponForm />} />
             
-            {/* Maintenance */}
-            <Route path="maintenance">
-              <Route index element={<MaintenanceList />} />
-              <Route path="new" element={<MaintenanceForm />} />
-              <Route path="edit/:id" element={<MaintenanceForm />} />
-              <Route path=":id" element={<MaintenanceForm />} />
-            </Route>
+            {/* Personnel (Soldier) routes */}
+            <Route path="/soldiers" element={<SoldierList />} />
+            <Route path="/soldiers/new" element={<SoldierForm />} />
+            <Route path="/soldiers/:id" element={<SoldierDetails />} />
+            <Route path="/soldiers/:id/edit" element={<SoldierForm />} />
             
-            {/* Weapon Assignments */}
-            <Route path="weapon-assignments">
-              <Route index element={<WeaponAssignmentList />} />
-              <Route path="new" element={<WeaponAssignmentForm />} />
-              <Route path="edit/:id" element={<WeaponAssignmentForm />} />
-              <Route path=":id" element={<WeaponAssignmentForm />} />
-            </Route>
+            {/* Weapon Assignment routes */}
+            <Route path="/weapon-assignments" element={<WeaponAssignmentList />} />
+            <Route path="/weapon-assignments/new" element={<WeaponAssignmentForm />} />
+            <Route path="/weapon-assignments/:id" element={<WeaponAssignmentDetails />} />
+            <Route path="/weapon-assignments/:id/edit" element={<WeaponAssignmentForm />} />
             
-            {/* Storage Facilities */}
-            <Route path="storage-facilities">
-              <Route index element={<StorageFacilityList />} />
-              <Route path="new" element={<StorageFacilityForm />} />
-              <Route path="edit/:id" element={<StorageFacilityForm />} />
-              <Route path=":id" element={<StorageFacilityForm />} />
-            </Route>
-            
-            {/* Catch all route */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </Router>
-    </ThemeProvider>
+            {/* Redirect to home for any other routes */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </Suspense>
+      </Layout>
+    </Router>
   );
-}
+};
 
-export default App;
+export default App; 

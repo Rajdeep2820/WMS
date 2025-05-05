@@ -1,51 +1,88 @@
-import React, { useState } from 'react';
-import { Box, CssBaseline, Toolbar, useMediaQuery, useTheme } from '@mui/material';
-import { Outlet } from 'react-router-dom';
-import Navbar from './Navbar';
+import React from 'react';
+import { Box, Container, CssBaseline, ThemeProvider, createTheme } from '@mui/material';
 import Sidebar from './Sidebar';
 
-const Layout: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+interface LayoutProps {
+  children: React.ReactNode;
+}
 
-  const handleSidebarOpen = () => {
-    setSidebarOpen(true);
-  };
+// Create a custom theme
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#1976d2', // Deep blue
+    },
+    secondary: {
+      main: '#673ab7', // Deep purple
+    },
+    error: {
+      main: '#f44336', // Red
+    },
+    warning: {
+      main: '#ff9800', // Orange
+    },
+    info: {
+      main: '#03a9f4', // Light blue
+    },
+    success: {
+      main: '#4caf50', // Green
+    },
+    background: {
+      default: '#f5f5f5', // Light gray
+    },
+  },
+  typography: {
+    fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    h4: {
+      fontWeight: 600,
+    },
+    h5: {
+      fontWeight: 600,
+    },
+    h6: {
+      fontWeight: 600,
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: 'none',
+          borderRadius: 8,
+        },
+      },
+    },
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+        },
+      },
+    },
+  },
+});
 
-  const handleSidebarClose = () => {
-    setSidebarOpen(false);
-  };
-
+const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+    <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Navbar onSidebarOpen={handleSidebarOpen} />
-      <Sidebar
-        open={sidebarOpen}
-        onClose={handleSidebarClose}
-      />
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: '100%',
-          backgroundColor: theme.palette.background.default,
-          overflowY: 'auto',
-          minHeight: '100vh',
-          pt: { xs: 3, sm: 3 },
-          mt: 8, // Adjust for the fixed AppBar height
-          position: 'relative',
-          zIndex: 1,
-        }}
-      >
-        <Toolbar />
-        <Box sx={{ position: 'relative', zIndex: 2, height: '100%' }}>
-          <Outlet />
+      <Box sx={{ display: 'flex', minHeight: '100vh' }}>
+        <Sidebar />
+        <Box
+          component="main"
+          sx={{
+            flexGrow: 1,
+            overflow: 'auto',
+            pt: 2,
+            px: 3,
+            pb: 4,
+          }}
+        >
+          <Box sx={{ height: 64 }} /> {/* Spacer for top navigation */}
+          <Container maxWidth="xl">{children}</Container>
         </Box>
       </Box>
-    </Box>
+    </ThemeProvider>
   );
 };
 

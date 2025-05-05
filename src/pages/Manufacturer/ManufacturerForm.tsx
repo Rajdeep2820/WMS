@@ -6,311 +6,236 @@ import {
   Typography,
   TextField,
   Button,
-  Divider,
-  useTheme,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  CircularProgress,
   Alert,
+  AlertTitle,
+  Divider,
+  SelectChangeEvent
 } from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import FactoryIcon from '@mui/icons-material/Factory';
-import SaveIcon from '@mui/icons-material/Save';
-import CancelIcon from '@mui/icons-material/Cancel';
 import { PageHeader } from '../../components/common';
+import { manufacturerApi } from '../../services/api';
 import { Manufacturer } from '../../types';
 
-// Mock manufacturer data (in a real app would come from an API)
-const mockManufacturers: Manufacturer[] = [
-  {
-    id: 1,
-    name: 'Defense Systems Inc.',
-    country: 'United States',
-    established: '1985-06-12',
-    contact: 'John Smith',
-    email: 'jsmith@defensesys.com',
-    phone: '+1-555-123-4567',
-    address: '123 Weapons Ave, Arlington, VA 22201',
-  },
-  {
-    id: 2,
-    name: 'Europa Arms',
-    country: 'Germany',
-    established: '1964-02-28',
-    contact: 'Hans Weber',
-    email: 'hweber@europaarms.de',
-    phone: '+49-30-987-6543',
-    address: 'Waffenstraße 45, Berlin, 10115',
-  },
-];
-
-const emptyManufacturer: Omit<Manufacturer, 'id'> = {
-  name: '',
-  country: '',
-  established: '',
-  contact: '',
-  email: '',
-  phone: '',
-  address: '',
-};
+interface FormErrors {
+  [key: string]: string;
+}
 
 const ManufacturerForm: React.FC = () => {
-  const { id } = useParams();
   const navigate = useNavigate();
-  const theme = useTheme();
-  const isEditMode = id !== 'new';
+  const { id } = useParams<{ id: string }>();
+  const isEditMode = Boolean(id);
   
-  const [manufacturer, setManufacturer] = useState<Omit<Manufacturer, 'id'>>(emptyManufacturer);
-  const [errors, setErrors] = useState<{ [key: string]: string }>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [formData, setFormData] = useState<Partial<Manufacturer>>({
+    Name: '',
+    Country: '',
+    Contact_Info: '',
+    Status: 'Active'
+  });
   
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [apiError, setApiError] = useState<string | null>(null);
+
   useEffect(() => {
     if (isEditMode && id) {
-      // In a real app, this would be an API call
-      const foundManufacturer = mockManufacturers.find(
-        (m) => m.id === parseInt(id, 10)
-      );
-      
-      if (foundManufacturer) {
-        const { id, ...rest } = foundManufacturer;
-        setManufacturer(rest);
-      } else {
-        // Manufacturer not found
-        navigate('/manufacturers');
-      }
+      fetchManufacturer(parseInt(id, 10));
     }
-    setIsInitialized(true);
-  }, [id, isEditMode, navigate]);
-  
+  }, [isEditMode, id]);
+
+  const fetchManufacturer = async (manufacturerId: number) => {
+    try {
+      setLoading(true);
+      const data = await manufacturerApi.getById(manufacturerId);
+      setFormData(data);
+    } catch (err: any) {
+      console.error('Error fetching manufacturer:', err);
+      setApiError('Failed to load manufacturer data. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const validateForm = (): boolean => {
-    const newErrors: { [key: string]: string } = {};
+    const newErrors: FormErrors = {};
     
-    if (!manufacturer.name.trim()) {
-      newErrors.name = 'Name is required';
+    if (!formData.Name?.trim()) {
+      newErrors.Name = 'Name is required';
     }
     
-    if (!manufacturer.country.trim()) {
-      newErrors.country = 'Country is required';
+    if (!formData.Country?.trim()) {
+      newErrors.Country = 'Country is required';
     }
     
-    if (!manufacturer.established.trim()) {
-      newErrors.established = 'Established date is required';
-    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(manufacturer.established)) {
-      newErrors.established = 'Use format YYYY-MM-DD';
-    }
-    
-    if (!manufacturer.contact.trim()) {
-      newErrors.contact = 'Contact person is required';
-    }
-    
-    if (!manufacturer.email.trim()) {
-      newErrors.email = 'Email is required';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(manufacturer.email)) {
-      newErrors.email = 'Enter a valid email address';
-    }
-    
-    if (!manufacturer.phone.trim()) {
-      newErrors.phone = 'Phone is required';
-    }
-    
-    if (!manufacturer.address.trim()) {
-      newErrors.address = 'Address is required';
+    if (!formData.Contact_Info?.trim()) {
+      newErrors.Contact_Info = 'Contact information is required';
     }
     
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setManufacturer((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-    
-    // Clear error when user starts typing again
-    if (errors[name]) {
-      setErrors((prev) => ({
-        ...prev,
-        [name]: '',
-      }));
-    }
-  };
-  
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!validateForm()) {
-      setSubmitError('Please fill in all required fields correctly.');
       return;
     }
     
-    setIsSubmitting(true);
-    setSubmitError(null);
-    
     try {
-      // Simulate API call with a longer delay to show loading state
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      setLoading(true);
+      setApiError(null);
       
-      // In a real app, you would make an API call here
-      // isEditMode ? updateManufacturer(id, manufacturer) : createManufacturer(manufacturer);
+      if (isEditMode && id) {
+        await manufacturerApi.update(parseInt(id, 10), formData as Manufacturer);
+      } else {
+        await manufacturerApi.create(formData as Manufacturer);
+      }
       
-      // Only navigate after successful submission
       navigate('/manufacturers');
-    } catch (error) {
-      setSubmitError('An error occurred while saving. Please try again.');
+    } catch (err: any) {
+      console.error('Error saving manufacturer:', err);
+      setApiError('Failed to save manufacturer. Please try again.');
     } finally {
-      setIsSubmitting(false);
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    if (name) {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+      
+      // Clear error when field is edited
+      if (errors[name]) {
+        setErrors(prev => ({ ...prev, [name]: '' }));
+      }
     }
   };
   
-  const handleCancel = () => {
-    navigate('/manufacturers');
+  const handleSelectChange = (e: SelectChangeEvent) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Clear error when field is edited
+    if (name && errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
   };
 
-  if (!isInitialized) {
-    return null; // Don't render anything until initialization is complete
+  if (loading && isEditMode) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
   }
-  
+
   return (
-    <Box sx={{ position: 'relative', zIndex: 2 }}>
+    <Box>
       <PageHeader
-        title={isEditMode ? 'Edit Manufacturer' : 'Add Manufacturer'}
-        icon={<FactoryIcon fontSize="large" />}
+        title={isEditMode ? 'Edit Manufacturer' : 'Add New Manufacturer'}
+        icon={<FactoryIcon />}
         showButton={false}
       />
       
-      <Paper
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{
-          p: 3,
-          mb: 3,
-          borderRadius: theme.shape.borderRadius,
-          position: 'relative',
-          zIndex: 2,
-        }}
-      >
-        {submitError && (
+      <Paper sx={{ p: 3, mb: 3 }}>
+        {apiError && (
           <Alert severity="error" sx={{ mb: 3 }}>
-            {submitError}
+            <AlertTitle>Error</AlertTitle>
+            {apiError}
           </Alert>
         )}
         
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3 }}>
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
+        <form onSubmit={handleSubmit}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              Manufacturer Information
+            </Typography>
+            
             <TextField
+              required
               fullWidth
               label="Name"
-              name="name"
-              value={manufacturer.name}
+              name="Name"
+              value={formData.Name || ''}
               onChange={handleInputChange}
-              error={!!errors.name}
-              helperText={errors.name}
-              required
+              error={!!errors.Name}
+              helperText={errors.Name}
             />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
+            
             <TextField
+              required
               fullWidth
               label="Country"
-              name="country"
-              value={manufacturer.country}
+              name="Country"
+              value={formData.Country || ''}
               onChange={handleInputChange}
-              error={!!errors.country}
-              helperText={errors.country}
-              required
+              error={!!errors.Country}
+              helperText={errors.Country}
             />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
+            
             <TextField
-              fullWidth
-              label="Established (YYYY-MM-DD)"
-              name="established"
-              value={manufacturer.established}
-              onChange={handleInputChange}
-              error={!!errors.established}
-              helperText={errors.established}
               required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
               fullWidth
-              label="Contact Person"
-              name="contact"
-              value={manufacturer.contact}
+              label="Contact Information"
+              name="Contact_Info"
+              value={formData.Contact_Info || ''}
               onChange={handleInputChange}
-              error={!!errors.contact}
-              helperText={errors.contact}
-              required
+              error={!!errors.Contact_Info}
+              helperText={errors.Contact_Info}
+              multiline
+              rows={2}
             />
+            
+            <FormControl fullWidth>
+              <InputLabel id="status-label">Status</InputLabel>
+              <Select
+                labelId="status-label"
+                name="Status"
+                value={formData.Status || 'Active'}
+                onChange={handleSelectChange}
+                label="Status"
+              >
+                <MenuItem value="Active">Active</MenuItem>
+                <MenuItem value="Inactive">Inactive</MenuItem>
+                <MenuItem value="Suspended">Suspended</MenuItem>
+              </Select>
+            </FormControl>
+            
+            <Divider sx={{ my: 2 }} />
+            
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Button
+                variant="outlined"
+                startIcon={<ArrowBackIcon />}
+                onClick={() => navigate('/manufacturers')}
+              >
+                Cancel
+              </Button>
+              
+              <Button
+                type="submit"
+                variant="contained"
+                color="primary"
+                disabled={loading}
+              >
+                {loading ? <CircularProgress size={24} /> : (isEditMode ? 'Update' : 'Save')}
+              </Button>
+            </Box>
           </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Email"
-              name="email"
-              type="email"
-              value={manufacturer.email}
-              onChange={handleInputChange}
-              error={!!errors.email}
-              helperText={errors.email}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Phone"
-              name="phone"
-              value={manufacturer.phone}
-              onChange={handleInputChange}
-              error={!!errors.phone}
-              helperText={errors.phone}
-              required
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 100%', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Address"
-              name="address"
-              value={manufacturer.address}
-              onChange={handleInputChange}
-              error={!!errors.address}
-              helperText={errors.address}
-              required
-            />
-          </Box>
-        </Box>
-        
-        <Divider sx={{ my: 3 }} />
-        
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2 }}>
-          <Button
-            variant="outlined"
-            color="primary"
-            onClick={handleCancel}
-            startIcon={<CancelIcon />}
-            disabled={isSubmitting}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            startIcon={<SaveIcon />}
-            disabled={isSubmitting}
-          >
-            {isSubmitting ? 'Saving...' : 'Save'}
-          </Button>
-        </Box>
+        </form>
       </Paper>
     </Box>
   );

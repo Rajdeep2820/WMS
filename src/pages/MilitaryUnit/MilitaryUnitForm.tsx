@@ -3,7 +3,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box,
   Paper,
-  Typography,
   TextField,
   Button,
   Divider,
@@ -16,50 +15,20 @@ import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import { PageHeader } from '../../components/common';
 import { MilitaryUnit } from '../../types';
+import { militaryUnitApi } from '../../services/api';
 
-// Mock military units data (in a real app would come from an API)
-const mockMilitaryUnits: MilitaryUnit[] = [
-  {
-    id: 1,
-    name: '1st Infantry Division',
-    location: 'Fort Riley, Kansas',
-    commanderName: 'Colonel James Wilson',
-    type: 'Infantry',
-    personnel: 12500,
-    established: '1917-06-14',
-  },
-  {
-    id: 2,
-    name: '5th Armored Brigade',
-    location: 'Fort Bliss, Texas',
-    commanderName: 'Colonel Sarah Johnson',
-    type: 'Armored',
-    personnel: 8200,
-    established: '1942-10-01',
-  },
-];
-
-const emptyMilitaryUnit: Omit<MilitaryUnit, 'id'> = {
-  name: '',
-  location: '',
-  commanderName: '',
-  type: '',
-  personnel: 0,
-  established: '',
-};
-
-const unitTypes = [
-  'Infantry',
-  'Armored',
-  'Artillery',
-  'Aviation',
+const branchOptions = [
+  'Army',
+  'Navy',
+  'Air Force',
+  'Marines', 
+  'Coast Guard',
   'Special Forces',
-  'Medical',
-  'Intelligence',
-  'Engineering',
-  'Supply',
-  'Communication',
+  'National Guard',
+  'Reserve',
 ];
+
+const statusOptions = ['Active', 'Inactive', 'Training', 'Deployed', 'Reserve', 'Disbanded'];
 
 const MilitaryUnitForm: React.FC = () => {
   const { id } = useParams();
@@ -67,7 +36,14 @@ const MilitaryUnitForm: React.FC = () => {
   const theme = useTheme();
   const isEditMode = id !== 'new';
   
-  const [militaryUnit, setMilitaryUnit] = useState<Omit<MilitaryUnit, 'id'>>(emptyMilitaryUnit);
+  const initialMilitaryUnitState: Omit<MilitaryUnit, 'Unit_ID'> = {
+    Name: '',
+    Branch: '',
+    Location: '',
+    Commanding_Officer: '',
+  };
+  
+  const [militaryUnit, setMilitaryUnit] = useState<Omit<MilitaryUnit, 'Unit_ID'>>(initialMilitaryUnitState);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -75,18 +51,24 @@ const MilitaryUnitForm: React.FC = () => {
   
   useEffect(() => {
     if (isEditMode && id) {
-      // In a real app, this would be an API call
-      const foundMilitaryUnit = mockMilitaryUnits.find(
-        (m) => m.id === parseInt(id, 10)
-      );
+      const fetchMilitaryUnit = async () => {
+        try {
+          const response = await militaryUnitApi.getById(parseInt(id, 10));
+          
+          // Map the response to the correct MilitaryUnit interface properties
+          setMilitaryUnit({
+            Name: response.Name || '',
+            Branch: response.Branch || '',
+            Location: response.Location || '',
+            Commanding_Officer: response.Commanding_Officer || '',
+          });
+        } catch (error) {
+          console.error('Error fetching military unit:', error);
+          navigate('/military-units');
+        }
+      };
       
-      if (foundMilitaryUnit) {
-        const { id, ...rest } = foundMilitaryUnit;
-        setMilitaryUnit(rest);
-      } else {
-        // Military unit not found
-        navigate('/military-units');
-      }
+      fetchMilitaryUnit();
     }
     setIsInitialized(true);
   }, [id, isEditMode, navigate]);
@@ -94,30 +76,20 @@ const MilitaryUnitForm: React.FC = () => {
   const validateForm = (): boolean => {
     const newErrors: { [key: string]: string } = {};
     
-    if (!militaryUnit.name.trim()) {
-      newErrors.name = 'Name is required';
+    if (!militaryUnit.Name?.trim()) {
+      newErrors.Name = 'Name is required';
     }
     
-    if (!militaryUnit.location.trim()) {
-      newErrors.location = 'Location is required';
+    if (!militaryUnit.Branch?.trim()) {
+      newErrors.Branch = 'Branch is required';
     }
     
-    if (!militaryUnit.commanderName.trim()) {
-      newErrors.commanderName = 'Commander name is required';
+    if (!militaryUnit.Location?.trim()) {
+      newErrors.Location = 'Location is required';
     }
     
-    if (!militaryUnit.type) {
-      newErrors.type = 'Unit type is required';
-    }
-    
-    if (!militaryUnit.personnel || militaryUnit.personnel <= 0) {
-      newErrors.personnel = 'Personnel count must be greater than 0';
-    }
-    
-    if (!militaryUnit.established.trim()) {
-      newErrors.established = 'Established date is required';
-    } else if (!/^\d{4}-\d{2}-\d{2}$/.test(militaryUnit.established)) {
-      newErrors.established = 'Use format YYYY-MM-DD';
+    if (!militaryUnit.Commanding_Officer?.trim()) {
+      newErrors.Commanding_Officer = 'Commanding Officer is required';
     }
     
     setErrors(newErrors);
@@ -129,7 +101,7 @@ const MilitaryUnitForm: React.FC = () => {
     
     setMilitaryUnit((prev) => ({
       ...prev,
-      [name]: name === 'personnel' ? parseInt(value, 10) || 0 : value,
+      [name]: value,
     }));
     
     // Clear error when user starts typing again
@@ -153,16 +125,16 @@ const MilitaryUnitForm: React.FC = () => {
     setSubmitError(null);
     
     try {
-      // Simulate API call with a longer delay to show loading state
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      if (isEditMode && id) {
+        await militaryUnitApi.update(parseInt(id, 10), militaryUnit);
+      } else {
+        await militaryUnitApi.create(militaryUnit);
+      }
       
-      // In a real app, you would make an API call here
-      // isEditMode ? updateMilitaryUnit(id, militaryUnit) : createMilitaryUnit(militaryUnit);
-      
-      // Only navigate after successful submission
       navigate('/military-units');
     } catch (error) {
       setSubmitError('An error occurred while saving. Please try again.');
+      console.error('Error saving military unit:', error);
     } finally {
       setIsSubmitting(false);
     }
@@ -173,7 +145,7 @@ const MilitaryUnitForm: React.FC = () => {
   };
 
   if (!isInitialized) {
-    return null; // Don't render anything until initialization is complete
+    return null;
   }
   
   return (
@@ -206,11 +178,11 @@ const MilitaryUnitForm: React.FC = () => {
             <TextField
               fullWidth
               label="Unit Name"
-              name="name"
-              value={militaryUnit.name}
+              name="Name"
+              value={militaryUnit.Name}
               onChange={handleInputChange}
-              error={!!errors.name}
-              helperText={errors.name}
+              error={!!errors.Name}
+              helperText={errors.Name}
               required
             />
           </Box>
@@ -219,11 +191,11 @@ const MilitaryUnitForm: React.FC = () => {
             <TextField
               fullWidth
               label="Location"
-              name="location"
-              value={militaryUnit.location}
+              name="Location"
+              value={militaryUnit.Location}
               onChange={handleInputChange}
-              error={!!errors.location}
-              helperText={errors.location}
+              error={!!errors.Location}
+              helperText={errors.Location}
               required
             />
           </Box>
@@ -231,12 +203,12 @@ const MilitaryUnitForm: React.FC = () => {
           <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
             <TextField
               fullWidth
-              label="Commander Name"
-              name="commanderName"
-              value={militaryUnit.commanderName}
+              label="Commanding Officer"
+              name="Commanding_Officer"
+              value={militaryUnit.Commanding_Officer}
               onChange={handleInputChange}
-              error={!!errors.commanderName}
-              helperText={errors.commanderName}
+              error={!!errors.Commanding_Officer}
+              helperText={errors.Commanding_Officer}
               required
             />
           </Box>
@@ -245,48 +217,20 @@ const MilitaryUnitForm: React.FC = () => {
             <TextField
               fullWidth
               select
-              label="Unit Type"
-              name="type"
-              value={militaryUnit.type}
+              label="Branch"
+              name="Branch"
+              value={militaryUnit.Branch}
               onChange={handleInputChange}
-              error={!!errors.type}
-              helperText={errors.type}
+              error={!!errors.Branch}
+              helperText={errors.Branch}
               required
             >
-              {unitTypes.map((type) => (
-                <MenuItem key={type} value={type}>
-                  {type}
+              {branchOptions.map((branch) => (
+                <MenuItem key={branch} value={branch}>
+                  {branch}
                 </MenuItem>
               ))}
             </TextField>
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Personnel Count"
-              name="personnel"
-              type="number"
-              value={militaryUnit.personnel || ''}
-              onChange={handleInputChange}
-              error={!!errors.personnel}
-              helperText={errors.personnel}
-              required
-              inputProps={{ min: 1 }}
-            />
-          </Box>
-          
-          <Box sx={{ flex: '1 1 calc(50% - 16px)', minWidth: '300px' }}>
-            <TextField
-              fullWidth
-              label="Established (YYYY-MM-DD)"
-              name="established"
-              value={militaryUnit.established}
-              onChange={handleInputChange}
-              error={!!errors.established}
-              helperText={errors.established}
-              required
-            />
           </Box>
         </Box>
         
